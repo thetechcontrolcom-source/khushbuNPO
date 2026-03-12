@@ -12,7 +12,7 @@ header('Content-Type: application/json');
 
 // CORS — restrict to same origin or known domains
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-$allowed = ['http://localhost', 'https://khushbushah.online'];
+$allowed = ['http://localhost', 'https://khushbushah.online', 'https://thetechcontrolcom-source.github.io'];
 $matched = false;
 foreach ($allowed as $a) {
     if (str_starts_with($origin, $a)) { $matched = true; break; }
