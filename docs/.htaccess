@@ -1,0 +1,4 @@
+# Protect comment data file from direct web access
+<Files "gms-comments-data.json">
+    Require all denied
+</Files>

@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grant Management System — Feature Overview</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+<link rel="stylesheet" href="docs-common.css">
+<style>
+/* Stat icon gradients (page-specific) */
+.si-1{background:linear-gradient(135deg,var(--superadmin),#a78bfa);}.si-2{background:linear-gradient(135deg,var(--secondary),var(--accent));}
+.si-3{background:linear-gradient(135deg,var(--success),#34d399);}.si-4{background:linear-gradient(135deg,var(--success),#34d399);}
+
+/* === ROLE CARDS (v2 — accent-stripe design) === */
+.role-card{background:var(--white);border-radius:var(--radius);margin:16px 0;border:1px solid #e2e8f0;transition:all .35s cubic-bezier(.4,0,.2,1);position:relative;overflow:hidden;}
+.role-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;}
+.role-card:hover{box-shadow:var(--shadow);border-color:#cbd5e0;}
+.role-card.rc-superadmin::before{background:linear-gradient(90deg,#7c3aed,#a78bfa);}
+.role-card.rc-manager::before{background:linear-gradient(90deg,#2563eb,#60a5fa);}
+.role-card.rc-staff::before{background:linear-gradient(90deg,#059669,#34d399);}
+.role-card.rc-client::before{background:linear-gradient(90deg,#d97706,#fbbf24);}
+
+.role-card-header{padding:20px 24px 0;display:flex;align-items:center;gap:14px;}
+.role-card-header .role-icon-circle{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,.12);}
+.rc-superadmin .role-icon-circle{background:linear-gradient(135deg,#7c3aed,#a78bfa);}
+.rc-manager .role-icon-circle{background:linear-gradient(135deg,#2563eb,#60a5fa);}
+.rc-staff .role-icon-circle{background:linear-gradient(135deg,#059669,#34d399);}
+.rc-client .role-icon-circle{background:linear-gradient(135deg,#d97706,#fbbf24);}
+.role-card-header .role-info{min-width:0;flex:1;}
+.role-card-header .role-name{margin:0;font-size:17px;font-weight:800;color:var(--primary);line-height:1.3;}
+.role-card-header .role-sub{font-size:12.5px;color:var(--text-light);margin-top:2px;display:block;line-height:1.4;}
+
+.role-card-body{padding:16px 24px 20px;}
+.role-perm-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;list-style:none;padding:0;margin:0;}
+.role-perm-grid li{display:flex;align-items:flex-start;gap:8px;padding:7px 0;font-size:13.5px;line-height:1.5;color:var(--text);border-bottom:1px solid #f1f5f9;}
+.role-perm-grid li:nth-last-child(-n+2){border-bottom:none;}
+.role-perm-grid li .perm-icon{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;flex-shrink:0;margin-top:2px;}
+.rc-superadmin .perm-icon{background:var(--superadmin);}
+.rc-manager .perm-icon{background:var(--manager);}
+.rc-staff .perm-icon{background:var(--staff);}
+.rc-client .perm-icon{background:var(--client);}
+.role-perm-grid li .perm-icon.deny{background:var(--danger);}
+.role-perm-grid li strong{color:var(--primary);font-weight:600;}
+
+/* Client tier cards */
+.client-tier-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:10px 0 14px;}
+.client-tier{border-radius:var(--radius-xs);padding:14px;text-align:center;border:1px solid #e2e8f0;transition:all .3s;}
+.client-tier:hover{transform:translateY(-2px);box-shadow:var(--shadow-sm);}
+.client-tier .tier-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:15px;color:#fff;}
+.client-tier .tier-name{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:4px;}
+.client-tier .tier-desc{font-size:11.5px;color:var(--text-light);line-height:1.4;}
+
+/* === LIFECYCLE FLOW === */
+.lifecycle{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;padding:20px;background:var(--white);border-radius:var(--radius-sm);margin:14px 0;border:1px solid #e2e8f0;}
+.lifecycle .stage{padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--secondary),var(--accent));transition:all .3s;cursor:default;letter-spacing:.3px;}
+.lifecycle .stage:hover{transform:scale(1.06);box-shadow:0 4px 12px rgba(59,130,246,.3);}
+.lifecycle .stage.terminated{background:linear-gradient(135deg,var(--danger),#fb7185);}
+.lifecycle .arrow-icon{color:var(--text-muted);font-size:12px;flex-shrink:0;}
+
+/* === SECURITY GRID === */
+.security-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0;}
+.security-card{background:linear-gradient(135deg,#0f172a,#1e293b);color:#e2e8f0;border-radius:var(--radius-sm);padding:20px;border:1px solid rgba(255,255,255,.06);transition:all .3s;}
+.security-card:hover{transform:translateY(-3px);box-shadow:0 8px 30px rgba(0,0,0,.25);border-color:rgba(56,189,248,.2);}
+.security-card h4{color:var(--accent);margin:0 0 10px;font-size:14px;display:flex;align-items:center;gap:8px;}
+.security-card li{font-size:13px;color:#94a3b8;margin-bottom:3px;}
+.security-card ul{padding-left:16px;margin-bottom:0;}
+
+/* === LOCKOUT VISUAL === */
+.lockout-visual{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0;}
+.lockout-step{text-align:center;padding:18px 10px;border-radius:var(--radius-sm);color:#fff;font-weight:700;transition:all .3s;position:relative;overflow:hidden;}
+.lockout-step::after{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent);animation:lock-shine 3s ease-in-out infinite;}
+@keyframes lock-shine{0%{left:-100%;}100%{left:100%;}}
+.lockout-step:hover{transform:scale(1.04);}
+.ls-1{background:linear-gradient(135deg,#10b981,#34d399);}.ls-2{background:linear-gradient(135deg,#eab308,#facc15);}
+.ls-3{background:linear-gradient(135deg,#f97316,#fb923c);}.ls-4{background:linear-gradient(135deg,#ef4444,#fb7185);}
+.lock-num{font-size:22px;display:block;}.lock-label{font-size:10px;opacity:.85;display:block;margin-top:4px;font-weight:600;}
+
+/* === SERVICE GRID === */
+.service-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0;}
+.service-card{background:var(--white);border-radius:var(--radius-sm);overflow:hidden;border:1px solid #e2e8f0;transition:all .3s;}
+.service-card:hover{transform:translateY(-3px);box-shadow:var(--shadow);}
+.service-card-header{padding:14px 18px;color:#fff;font-weight:700;display:flex;align-items:center;gap:10px;font-size:14px;}
+.sc-1{background:linear-gradient(135deg,#3b82f6,#06b6d4);}.sc-2{background:linear-gradient(135deg,#8b5cf6,#a78bfa);}
+.sc-3{background:linear-gradient(135deg,#10b981,#34d399);}.sc-4{background:linear-gradient(135deg,#f59e0b,#fbbf24);}
+.service-card-body{padding:14px 18px;}
+.service-card-body li{font-size:13px;}
+
+/* === PRINT (page-specific) === */
+@media print{
+  .lifecycle{box-shadow:none!important;}
+  .role-card,.security-card,.service-card{box-shadow:none!important;margin:4px 0!important;}
+  .role-card-header{padding:8px 12px 0!important;}
+  .role-card-header .role-icon-circle{width:24px!important;height:24px!important;font-size:10px!important;box-shadow:none!important;}
+  .role-card-body{padding:6px 12px 8px!important;}
+  .role-perm-grid{gap:0 6px!important;}
+  .role-perm-grid li{font-size:7.5pt!important;padding:1px 0!important;}
+  .role-perm-grid li .perm-icon{width:12px!important;height:12px!important;font-size:5px!important;}
+  .client-tier-row{gap:3px!important;}
+  .client-tier{padding:4px!important;}
+  .client-tier .tier-icon{width:16px!important;height:16px!important;font-size:8px!important;margin-bottom:2px!important;}
+  .client-tier .tier-name{font-size:7.5pt!important;}
+  .client-tier .tier-desc{font-size:7pt!important;}
+  .security-grid,.service-grid{gap:4px!important;}
+  .lockout-step{overflow:visible!important;}
+  .lockout-step::after{display:none!important;}
+  .lockout-visual{gap:3px!important;}
+  .lifecycle{padding:6px!important;}
+  .lifecycle .stage{padding:2px 6px!important;font-size:7pt!important;}
+  .service-card-header{padding:5px 8px!important;font-size:8pt!important;}
+  .service-card-body{padding:4px 8px!important;}
+  .service-card-body li{font-size:7.5pt!important;}
+  .security-card{padding:8px!important;}
+  .security-card h4{font-size:8pt!important;margin-bottom:3px!important;}
+  .security-card li{font-size:7.5pt!important;}
+  .grid-2col,.grid-2col-lg{gap:6px!important;}
+}
+
+/* === RESPONSIVE GRID HELPERS (page-specific) === */
+.grid-2col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.grid-2col-lg{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+
+/* === RESPONSIVE (page-specific) === */
+@media(max-width:768px){
+  .security-grid,.service-grid,.grid-2col,.grid-2col-lg{grid-template-columns:1fr;}
+  .lockout-visual{grid-template-columns:1fr 1fr;}
+
+  /* Role cards — mobile */
+  .role-card{margin:12px 0;border-radius:var(--radius-sm);}
+  .role-card:hover{transform:none;box-shadow:none;}
+  .role-card-header{padding:16px 16px 0;gap:12px;}
+  .role-card-header .role-icon-circle{width:40px;height:40px;font-size:17px;}
+  .role-card-header .role-name{font-size:15px;}
+  .role-card-header .role-sub{font-size:11.5px;}
+  .role-card-body{padding:12px 16px 16px;}
+  .role-perm-grid{grid-template-columns:1fr;gap:2px;}
+  .role-perm-grid li{padding:6px 0;font-size:13px;}
+  .role-perm-grid li:last-child{border-bottom:none;}
+  .client-tier-row{grid-template-columns:1fr;gap:8px;}
+}
+@media(max-width:480px){
+  .lockout-visual{grid-template-columns:1fr 1fr;}
+
+  /* Role cards — small phone */
+  .role-card-header{padding:14px 14px 0;gap:10px;}
+  .role-card-header .role-icon-circle{width:36px;height:36px;font-size:15px;}
+  .role-card-header .role-name{font-size:14px;}
+  .role-card-header .role-sub{font-size:11px;}
+  .role-card-body{padding:10px 14px 14px;}
+  .role-perm-grid li{font-size:12.5px;padding:5px 0;}
+  .role-perm-grid li .perm-icon{width:20px;height:20px;font-size:9px;}
+}
+.hero.hero-features{background:linear-gradient(135deg,#1e1b4b 0%,#312e81 30%,#4338ca 60%,#6366f1 100%);}
+</style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav class="top-nav">
+  <div class="nav-logo"><span class="icon-wrap"><i class="fa-solid fa-shield-halved"></i></span><span class="nav-text">Grant Management System</span></div>
+  <div class="nav-links">
+    <a href="GMS-Feature-Overview.html" class="active"><i class="fa-solid fa-star"></i> Feature Overview</a>
+    <a href="GMS-Workflow-Guide.html"><i class="fa-solid fa-diagram-project"></i> Workflow Guide</a>
+    <a href="GMS-Testing-Deployment-Plan.html"><i class="fa-solid fa-rocket"></i> Testing &amp; Deployment</a>
+    <a href="maintenance-plan.html"><i class="fa-solid fa-wrench"></i> Maintenance Plan</a>
+    <a href="GMS-Comments.html"><i class="fa-solid fa-comments"></i> Forum</a>
+  </div>
+  <div class="nav-right">
+    <a class="nav-action" href="#" onclick="downloadAllPagesAsPDF(event);return false;" title="Download All Pages as PDF"><i class="fa-solid fa-download"></i></a>
+    <a class="nav-action" href="#" onclick="window.location.href='mailto:?subject='+encodeURIComponent('GMS Feature Overview — Citrin Cooperman')+'&body='+encodeURIComponent('Please review the Grant Management System — Feature Overview:\n\n'+window.location.href+'\n\nDocument: GMS Feature Overview V1.0\nClassification: Internal Use Only\n\n— Citrin Cooperman');return false;" title="Email this page"><i class="fa-solid fa-envelope"></i></a>
+    <a class="nav-action" href="GMS-Comments.html" title="Forum"><i class="fa-solid fa-comments"></i></a>
+    <span class="nav-badge"><i class="fa-solid fa-circle"></i> Internal Use Only</span>
+  </div>
+  <button class="nav-hamburger" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+</nav>
+
+<!-- MOBILE NAV -->
+<div class="mobile-nav-overlay"></div>
+<nav class="mobile-nav" aria-label="Mobile navigation">
+  <div class="mobile-nav-header">
+    <div class="nav-logo"><span class="icon-wrap"><i class="fa-solid fa-shield-halved"></i></span> GMS</div>
+    <button class="mobile-nav-close" aria-label="Close navigation">&times;</button>
+  </div>
+  <div class="mobile-nav-links">
+    <a href="GMS-Feature-Overview.html" class="active"><i class="fa-solid fa-star"></i> <span class="mobile-nav-label">Feature Overview</span> <i class="fa-solid fa-chevron-right mobile-nav-arrow"></i></a>
+    <a href="GMS-Workflow-Guide.html"><i class="fa-solid fa-diagram-project"></i> <span class="mobile-nav-label">Workflow Guide</span> <i class="fa-solid fa-chevron-right mobile-nav-arrow"></i></a>
+    <a href="GMS-Testing-Deployment-Plan.html"><i class="fa-solid fa-rocket"></i> <span class="mobile-nav-label">Testing & Deployment</span> <i class="fa-solid fa-chevron-right mobile-nav-arrow"></i></a>
+    <a href="maintenance-plan.html"><i class="fa-solid fa-wrench"></i> <span class="mobile-nav-label">Maintenance Plan</span> <i class="fa-solid fa-chevron-right mobile-nav-arrow"></i></a>
+    <a href="GMS-Comments.html"><i class="fa-solid fa-comments"></i> <span class="mobile-nav-label">Forum</span> <i class="fa-solid fa-chevron-right mobile-nav-arrow"></i></a>
+  </div>
+  <div class="mobile-nav-divider"></div>
+  <div class="mobile-nav-actions">
+    <a class="mobile-nav-action" href="#" onclick="downloadAllPagesAsPDF(event);return false;"><i class="fa-solid fa-download"></i> Download PDF</a>
+    <a class="mobile-nav-action" href="GMS-Comments.html"><i class="fa-solid fa-comments"></i> Forum</a>
+  </div>
+  <div class="mobile-nav-footer">
+    <span class="nav-badge"><i class="fa-solid fa-circle"></i> Internal Use Only</span>
+  </div>
+</nav>
+
+<!-- LEFT SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-title">Table of Contents</div>
+  <ul class="sidebar-nav" id="sidebarNav">
+    <li><a href="#exec-summary"><span class="nav-icon ni-1"><i class="fa-solid fa-bullseye"></i></span> Executive Summary</a></li>
+    <li><a href="#business-value"><span class="nav-icon ni-2"><i class="fa-solid fa-chart-line"></i></span> Business Value</a></li>
+    <li><a href="#roles"><span class="nav-icon ni-3"><i class="fa-solid fa-users-gear"></i></span> Roles &amp; Permissions</a></li>
+    <li><a href="#grant-lifecycle"><span class="nav-icon ni-4"><i class="fa-solid fa-arrows-spin"></i></span> Grant Lifecycle</a></li>
+    <li><a href="#financial"><span class="nav-icon ni-5"><i class="fa-solid fa-file-invoice-dollar"></i></span> Financial Mgmt</a></li>
+    <li><a href="#compliance"><span class="nav-icon ni-6"><i class="fa-solid fa-clipboard-check"></i></span> Compliance &amp; Audit</a></li>
+    <li><a href="#pipeline"><span class="nav-icon ni-7"><i class="fa-solid fa-filter"></i></span> Pipeline</a></li>
+    <li><a href="#documents"><span class="nav-icon ni-8"><i class="fa-solid fa-folder-open"></i></span> Documents</a></li>
+    <li><a href="#reporting"><span class="nav-icon ni-9"><i class="fa-solid fa-chart-pie"></i></span> Reporting</a></li>
+    <li><a href="#client-portal"><span class="nav-icon ni-10"><i class="fa-solid fa-building"></i></span> Client Portal</a></li>
+    <li><a href="#communications"><span class="nav-icon ni-11"><i class="fa-solid fa-bell"></i></span> Communications</a></li>
+    <li><a href="#security"><span class="nav-icon ni-12"><i class="fa-solid fa-lock"></i></span> Security</a></li>
+    <li><a href="#customization"><span class="nav-icon ni-13"><i class="fa-solid fa-palette"></i></span> Configuration</a></li>
+    <li><a href="#scalability"><span class="nav-icon ni-14"><i class="fa-solid fa-expand"></i></span> Scalability</a></li>
+    <li><a href="#service-lines"><span class="nav-icon ni-15"><i class="fa-solid fa-briefcase"></i></span> Service Lines</a></li>
+    <li><a href="#azure"><span class="nav-icon ni-16"><i class="fa-brands fa-microsoft"></i></span> Azure</a></li>
+    <li><a href="#ai-note"><span class="nav-icon ni-17"><i class="fa-solid fa-robot"></i></span> AI Transparency</a></li>
+  </ul>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+
+<!-- HERO -->
+<section class="hero hero-features">
+  <div class="hero-particles" id="particles"></div>
+  <div class="hero-orb o1"></div>
+  <div class="hero-orb o2"></div>
+  <div class="hero-orb o3"></div>
+  <div class="hero-content">
+    <div class="hero-badge"><i class="fa-solid fa-shield-halved"></i> Enterprise-Grade <i class="fa-solid fa-server" style="font-size:11px;"></i> Fully Scalable <i class="fa-solid fa-lock" style="font-size:11px;"></i> Secure</div>
+    <h1>Feature Overview</h1>
+    <h1 class="subtitle">Grant Management System</h1>
+    <p style="color:rgba(255,255,255,.55);font-size:14px;margin-bottom:20px;">Exclusively Developed for Citrin Cooperman from Scratch — Zero External Code Dependencies</p>
+    <p style="color:rgba(255,255,255,.65);font-size:14px;margin-bottom:28px;font-weight:500;letter-spacing:.2px;"><i class="fa-solid fa-user" style="margin-right:6px;color:#a78bfa;"></i> Khushbu Shah (CPA Licence Awaited, CFP, CWM) &nbsp;&bull;&nbsp; Staff &nbsp;&bull;&nbsp; V1.0 &nbsp;&bull;&nbsp; &copy; 2026</p>
+    <div class="hero-meta">
+      <div class="hero-meta-item"><i class="fa-solid fa-building"></i> Citrin Cooperman</div>
+      <div class="hero-meta-item"><i class="fa-solid fa-calendar"></i> March 10, 2026</div>
+      <div class="hero-meta-item"><i class="fa-brands fa-microsoft"></i> Microsoft Azure</div>
+      <a href="javascript:void(0)" onclick="window.print()" class="btn-hero-pdf"><i class="fa fa-file-pdf"></i> PDF</a>
+    </div>
+  </div>
+</section>
+
+<!-- STAT CARDS -->
+<div class="stats-row">
+  <div class="stat-card fade-in"><div class="stat-icon si-1"><i class="fa-solid fa-users"></i></div><div class="stat-number" data-target="4">0</div><div class="stat-label">User Roles</div></div>
+  <div class="stat-card fade-in"><div class="stat-icon si-2"><i class="fa-solid fa-arrows-spin"></i></div><div class="stat-number" data-target="7">0</div><div class="stat-label">Lifecycle Stages</div></div>
+  <div class="stat-card fade-in security-glow"><div class="stat-icon si-3"><i class="fa-solid fa-lock"></i></div><div class="stat-number" data-target="14">0</div><div class="stat-label">Security Layers</div></div>
+  <div class="stat-card fade-in"><div class="stat-icon si-4"><i class="fa-solid fa-chart-bar"></i></div><div class="stat-number" data-target="10">0</div><div class="stat-suffix">+</div><div class="stat-label">Report Types</div></div>
+</div>
+
+<div class="content">
+
+<!-- 1. EXECUTIVE SUMMARY -->
+<div class="section-card fade-in" id="exec-summary">
+  <h2 class="section-title"><span class="title-icon ni-1"><i class="fa-solid fa-bullseye"></i></span> 1. Executive Summary</h2>
+
+  <p style="font-size:15.5px;line-height:1.8;margin-bottom:20px;">The <strong>Grant Management System (GMS)</strong> is a comprehensive, web-based platform designed to manage the complete lifecycle of grants — from pipeline identification through closeout — for organizations managing federal, state, foundation, and corporate awards. The system consolidates financial tracking, compliance management, audit trails, document storage, and client communications into a single, secure platform.</p>
+
+  <!-- Key Facts Grid -->
+  <h3 style="margin-bottom:16px;"><i class="fa-solid fa-circle-info"></i> Key Facts</h3>
+
+  <div class="grid-2col" style="margin-bottom:24px;">
+
+    <!-- AI Transparency -->
+    <div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1px solid #e2e8f0;border-radius:10px;padding:16px;display:flex;align-items:flex-start;gap:12px;">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#64748b,#94a3b8);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-robot" style="color:#fff;font-size:14px;"></i></div>
+      <div><strong style="font-size:13px;color:var(--primary);display:block;margin-bottom:2px;">AI-Assisted Development</strong><span style="font-size:12.5px;color:var(--text-light);line-height:1.5;">Built using Multiple AI and human expertise as development tools for rapid, high-quality delivery</span></div>
+    </div>
+
+    <!-- No AI in Production -->
+    <div style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1px solid #fca5a5;border-radius:10px;padding:16px;display:flex;align-items:flex-start;gap:12px;">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--danger),#fb7185);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-ban" style="color:#fff;font-size:14px;"></i></div>
+      <div><strong style="font-size:13px;color:var(--primary);display:block;margin-bottom:2px;">No AI in Production</strong><span style="font-size:12.5px;color:var(--text-light);line-height:1.5;">No AI runs within the deployed application — completely standalone</span></div>
+    </div>
+
+    <!-- Client Data Safety -->
+    <div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #6ee7b7;border-radius:10px;padding:16px;display:flex;align-items:flex-start;gap:12px;">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--success),#34d399);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-user-shield" style="color:#fff;font-size:14px;"></i></div>
+      <div><strong style="font-size:13px;color:var(--primary);display:block;margin-bottom:2px;">Client Data Safety</strong><span style="font-size:12.5px;color:var(--text-light);line-height:1.5;">No client data is ever processed by any AI service</span></div>
+    </div>
+
+    <!-- Auditable Codebase -->
+    <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:10px;padding:16px;display:flex;align-items:flex-start;gap:12px;">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--secondary),var(--accent));display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-magnifying-glass" style="color:#fff;font-size:14px;"></i></div>
+      <div><strong style="font-size:13px;color:var(--primary);display:block;margin-bottom:2px;">Auditable Codebase</strong><span style="font-size:12.5px;color:var(--text-light);line-height:1.5;">Fully auditable, standard codebase — free of AI dependencies</span></div>
+    </div>
+
+    <!-- Microsoft Azure -->
+    <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:10px;padding:16px;display:flex;align-items:flex-start;gap:12px;">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#3b82f6,#60a5fa);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-brands fa-microsoft" style="color:#fff;font-size:14px;"></i></div>
+      <div><strong style="font-size:13px;color:var(--primary);display:block;margin-bottom:2px;">Microsoft Azure</strong><span style="font-size:12.5px;color:var(--text-light);line-height:1.5;">Designed for deployment on Microsoft Azure cloud infrastructure</span></div>
+    </div>
+
+    <!-- Multi-Tenant -->
+    <div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:1px solid #c4b5fd;border-radius:10px;padding:16px;display:flex;align-items:flex-start;gap:12px;">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#8b5cf6,#a78bfa);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-building" style="color:#fff;font-size:14px;"></i></div>
+      <div><strong style="font-size:13px;color:var(--primary);display:block;margin-bottom:2px;">Multi-Tenant Architecture</strong><span style="font-size:12.5px;color:var(--text-light);line-height:1.5;">Unlimited client organizations with logically separated data</span></div>
+    </div>
+
+    <!-- White-Label -->
+    <div style="background:linear-gradient(135deg,#fdf2f8,#fce7f3);border:1px solid #f9a8d4;border-radius:10px;padding:16px;display:flex;align-items:flex-start;gap:12px;">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#ec4899,#f472b6);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-palette" style="color:#fff;font-size:14px;"></i></div>
+      <div><strong style="font-size:13px;color:var(--primary);display:block;margin-bottom:2px;">Branding</strong><span style="font-size:12.5px;color:var(--text-light);line-height:1.5;">Branded as Citrin Cooperman's own product — custom name, logo, colors</span></div>
+    </div>
+
+    <!-- Fully Scalable -->
+    <div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #6ee7b7;border-radius:10px;padding:16px;display:flex;align-items:flex-start;gap:12px;">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#14b8a6,#2dd4bf);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-arrows-up-down" style="color:#fff;font-size:14px;"></i></div>
+      <div><strong style="font-size:13px;color:var(--primary);display:block;margin-bottom:2px;">Fully Scalable</strong><span style="font-size:12.5px;color:var(--text-light);line-height:1.5;">Handles growth from 5 to 500+ client organizations with zero code changes</span></div>
+    </div>
+
+    <!-- Easy Maintenance -->
+    <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;border-radius:10px;padding:16px;display:flex;align-items:flex-start;gap:12px;">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#22c55e,#4ade80);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-wrench" style="color:#fff;font-size:14px;"></i></div>
+      <div><strong style="font-size:13px;color:var(--primary);display:block;margin-bottom:2px;">Easy Maintenance</strong><span style="font-size:12.5px;color:var(--text-light);line-height:1.5;">Built on a clean, well-organized foundation with a standard database — no unnecessary complexity or external dependencies</span></div>
+    </div>
+
+    <!-- Exclusively Developed -->
+    <div style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1px solid #fdba74;border-radius:10px;padding:16px;display:flex;align-items:flex-start;gap:12px;">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#f97316,#fb923c);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-code" style="color:#fff;font-size:14px;"></i></div>
+      <div><strong style="font-size:13px;color:var(--primary);display:block;margin-bottom:2px;">Exclusively Developed from Scratch</strong><span style="font-size:12.5px;color:var(--text-light);line-height:1.5;">Built entirely for Citrin Cooperman — zero external code dependencies</span></div>
+    </div>
+
+  </div>
+
+  <!-- Strategic Value -->
+  <div class="highlight-box" style="margin-top:0;">
+    <strong><i class="fa-solid fa-rocket" style="color:var(--secondary);margin-right:4px;"></i> Strategic Opportunity:</strong> For Citrin Cooperman, the GMS represents a <strong>vertical expansion opportunity</strong> — extending the firm's accounting, taxation, auditing, and advisory services into grant management as a dedicated service line, deepening client engagement, generating recurring revenue, and creating competitive differentiation.
+  </div>
+</div>
+
+<!-- 2. BUSINESS VALUE -->
+<div class="section-card fade-in" id="business-value">
+  <h2 class="section-title"><span class="title-icon ni-2"><i class="fa-solid fa-chart-line"></i></span> 2. Business Value &amp; Strategic Fit</h2>
+  <p>Grant management is a growing need among nonprofits, educational institutions, healthcare organizations, and government contractors. By offering a proprietary, branded GMS, Citrin Cooperman can unlock a new vertical:</p>
+
+  <div class="grid-2col-lg" style="margin:20px 0;">
+    <div style="background:linear-gradient(135deg,#ecfdf5,#f0fdf4);border:1px solid #86efac;border-radius:10px;padding:18px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><div style="width:30px;height:30px;border-radius:8px;background:#10b981;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-dollar-sign" style="color:#fff;font-size:13px;"></i></div><strong style="color:#059669;">New Revenue Stream</strong></div>
+      <p style="margin:0;font-size:13px;color:#64748b;">Grant management services billed as advisory/consulting engagements — recurring revenue per client</p>
+    </div>
+    <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:10px;padding:18px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><div style="width:30px;height:30px;border-radius:8px;background:#3b82f6;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-handshake" style="color:#fff;font-size:13px;"></i></div><strong style="color:#2563eb;">Deeper Client Relationships</strong></div>
+      <p style="margin:0;font-size:13px;color:#64748b;">Clients interact daily, not just during tax/audit season — embedded engagement year-round</p>
+    </div>
+    <div style="background:linear-gradient(135deg,#ecfeff,#cffafe);border:1px solid #67e8f9;border-radius:10px;padding:18px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><div style="width:30px;height:30px;border-radius:8px;background:#06b6d4;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-link" style="color:#fff;font-size:13px;"></i></div><strong style="color:#0891b2;">Higher Client Retention</strong></div>
+      <p style="margin:0;font-size:13px;color:#64748b;">Embedded clients relying on the platform daily are far less likely to switch firms</p>
+    </div>
+    <div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border:1px solid #fde047;border-radius:10px;padding:18px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><div style="width:30px;height:30px;border-radius:8px;background:#f59e0b;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-trophy" style="color:#fff;font-size:13px;"></i></div><strong style="color:#d97706;">Competitive Edge</strong></div>
+      <p style="margin:0;font-size:13px;color:#64748b;">Few firms offer an integrated, proprietary grant management platform — strong differentiation</p>
+    </div>
+    <div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:1px solid #c4b5fd;border-radius:10px;padding:18px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><div style="width:30px;height:30px;border-radius:8px;background:#8b5cf6;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-arrows-up-down" style="color:#fff;font-size:13px;"></i></div><strong style="color:#7c3aed;">Scale Without Headcount</strong></div>
+      <p style="margin:0;font-size:13px;color:#64748b;">Automates tracking, compliance, and reporting — serve more clients without proportional staff growth</p>
+    </div>
+    <div style="background:linear-gradient(135deg,#fdf2f8,#fce7f3);border:1px solid #f9a8d4;border-radius:10px;padding:18px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#ec4899,#f472b6);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fa-solid fa-palette" style="color:#fff;font-size:13px;"></i></div><strong style="color:#db2777;">Branding</strong></div>
+      <p style="margin:0;font-size:13px;color:#64748b;">Custom name, logo, colors, email templates, reports — Citrin Cooperman Product</p>
+    </div>
+  </div>
+
+  <div class="highlight-box">
+    <strong><i class="fa-solid fa-building"></i> Multi-Tenant Architecture:</strong> Logically separated data per client organization. Single deployment supports unlimited clients with staff assigned to specific organizations. New client onboarding requires no infrastructure changes.
+  </div>
+</div>
+
+<!-- 3. ROLES -->
+<div class="section-card fade-in" id="roles">
+  <h2 class="section-title"><span class="title-icon ni-3"><i class="fa-solid fa-users-gear"></i></span> 3. Role-Based Access &amp; Permissions</h2>
+  <p>Strict four-tier role hierarchy. Every action, page, and data point is governed by role and organizational assignment.</p>
+
+  <!-- Superadmin -->
+  <div class="role-card rc-superadmin">
+    <div class="role-card-header">
+      <div class="role-icon-circle"><i class="fa-solid fa-shield-halved"></i></div>
+      <div class="role-info">
+        <h4 class="role-name">Superadmin</h4>
+        <span class="role-sub">Full Platform Control — Senior IT administrators or designated firm-level administrators</span>
+      </div>
+    </div>
+    <div class="role-card-body">
+      <ul class="role-perm-grid">
+        <li><span class="perm-icon"><i class="fa-solid fa-user-plus"></i></span><span><strong>User Management</strong> — Create, edit, deactivate, force password resets</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-sitemap"></i></span><span><strong>Organization Mgmt</strong> — Create/edit client orgs, assign staff</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-gear"></i></span><span><strong>System Settings</strong> — Security, email, branding, feature toggles</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-scroll"></i></span><span><strong>Audit Log</strong> — View &amp; export system-wide audit trail</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-eye"></i></span><span><strong>Activity Monitor</strong> — Login history, sessions, failed attempts</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-right-from-bracket"></i></span><span><strong>Force-Logout</strong> — Terminate any active session</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-key"></i></span><span><strong>Integration Access Keys</strong> — Create, revoke, and manage access for third-party systems</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-heart-pulse"></i></span><span><strong>Health Dashboard</strong> — Platform stats &amp; error summaries</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-database"></i></span><span><strong>Backup &amp; Restore</strong> — Manual backups, restore from files</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-chart-pie"></i></span><span><strong>Portfolio Views</strong> — Aggregated cross-org data</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-bullhorn"></i></span><span><strong>Announcements</strong> — System-wide with acknowledgment tracking</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Manager -->
+  <div class="role-card rc-manager">
+    <div class="role-card-header">
+      <div class="role-icon-circle"><i class="fa-solid fa-user-tie"></i></div>
+      <div class="role-info">
+        <h4 class="role-name">Manager</h4>
+        <span class="role-sub">Operational Grant Management — Grant managers, senior accountants, engagement leads</span>
+      </div>
+    </div>
+    <div class="role-card-body">
+      <ul class="role-perm-grid">
+        <li><span class="perm-icon"><i class="fa-solid fa-building"></i></span><span><strong>Org Access</strong> — Restricted to assigned organizations only</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-arrows-spin"></i></span><span><strong>Grant Lifecycle</strong> — Create, edit, transition statuses</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-file-pen"></i></span><span><strong>Amendments</strong> — Before/after snapshot recording</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-book"></i></span><span><strong>Workbooks</strong> — Open, lock, submit, approve</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-file-invoice-dollar"></i></span><span><strong>Financial Ops</strong> — Budget, expenses, drawdowns, invoicing</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-calendar-check"></i></span><span><strong>Compliance</strong> — Requirements, submissions, documents</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-magnifying-glass-dollar"></i></span><span><strong>Single Audit</strong> — SEFA tracking, auditor coordination</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-percent"></i></span><span><strong>Rates</strong> — Indirect cost &amp; fringe benefits</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-mobile-screen"></i></span><span><strong>Two-Factor Authentication</strong> — Verification codes enabled for enhanced login security</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-scale-balanced"></i></span><span><strong>PPA</strong> — Two-person control (no self-approval)</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-file-export"></i></span><span><strong>Reports</strong> — Generate &amp; export Excel/PDF</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Staff -->
+  <div class="role-card rc-staff">
+    <div class="role-card-header">
+      <div class="role-icon-circle"><i class="fa-solid fa-user"></i></div>
+      <div class="role-info">
+        <h4 class="role-name">Staff</h4>
+        <span class="role-sub">Data Entry &amp; Day-to-Day — Staff accountants, grant coordinators</span>
+      </div>
+    </div>
+    <div class="role-card-body">
+      <ul class="role-perm-grid">
+        <li><span class="perm-icon"><i class="fa-solid fa-building"></i></span><span><strong>Org Access</strong> — Restricted to assigned organizations</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-eye"></i></span><span><strong>Grant View/Edit</strong> — View details and enter data</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-keyboard"></i></span><span><strong>Workbook Entry</strong> — Expenses, adjustments, journals</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-list-check"></i></span><span><strong>Budget Lines</strong> — Add and edit line items</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-money-bill-transfer"></i></span><span><strong>Drawdowns</strong> — Create requests, record receipts</span></li>
+        <li><span class="perm-icon deny"><i class="fa-solid fa-ban"></i></span><span><strong>Cannot:</strong> Lock workbooks, authorize PPAs, create users, transition lifecycle</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Client -->
+  <div class="role-card rc-client">
+    <div class="role-card-header">
+      <div class="role-icon-circle"><i class="fa-solid fa-building"></i></div>
+      <div class="role-info">
+        <h4 class="role-name">Client</h4>
+        <span class="role-sub">Organization Portal — Client contacts at nonprofits, educational institutions, government entities</span>
+      </div>
+    </div>
+    <div class="role-card-body">
+      <p style="font-size:14px;font-weight:700;color:var(--primary);margin-bottom:10px;"><i class="fa-solid fa-layer-group" style="color:var(--client);margin-right:6px;"></i> Three-Tier Permission Model</p>
+      <div class="client-tier-row">
+        <div class="client-tier">
+          <div class="tier-icon" style="background:linear-gradient(135deg,#94a3b8,#cbd5e1);"><i class="fa-solid fa-chart-simple"></i></div>
+          <div class="tier-name">Summary Only</div>
+          <div class="tier-desc">Dashboard totals — funds, released, remaining</div>
+        </div>
+        <div class="client-tier">
+          <div class="tier-icon" style="background:linear-gradient(135deg,#3b82f6,#60a5fa);"><i class="fa-solid fa-eye"></i></div>
+          <div class="tier-name">Standard</div>
+          <div class="tier-desc">View working sheets, documents, reports</div>
+        </div>
+        <div class="client-tier">
+          <div class="tier-icon" style="background:linear-gradient(135deg,#d97706,#fbbf24);"><i class="fa-solid fa-pen-to-square"></i></div>
+          <div class="tier-name">Full Detail</div>
+          <div class="tier-desc">All access + upload docs, submit expenses</div>
+        </div>
+      </div>
+      <ul class="role-perm-grid" style="margin-top:8px;">
+        <li><span class="perm-icon"><i class="fa-solid fa-folder"></i></span><span><strong>Documents</strong> — View shared, upload supporting files</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-receipt"></i></span><span><strong>Expenses</strong> — Submit reimbursable with receipts</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-comments"></i></span><span><strong>Messaging</strong> — Threaded messaging with staff</span></li>
+        <li><span class="perm-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span><span><strong>Onboarding</strong> — First-time guided setup wizard</span></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 4. GRANT LIFECYCLE -->
+<div class="section-card fade-in" id="grant-lifecycle">
+  <h2 class="section-title"><span class="title-icon ni-4"><i class="fa-solid fa-arrows-spin"></i></span> 4. Grant Lifecycle Management</h2>
+  <h3><i class="fa-solid fa-route"></i> Lifecycle Stages</h3>
+  <div class="lifecycle">
+    <div class="stage">Pipeline</div><i class="fa-solid fa-chevron-right arrow-icon"></i>
+    <div class="stage">Awarded</div><i class="fa-solid fa-chevron-right arrow-icon"></i>
+    <div class="stage">Active</div><i class="fa-solid fa-chevron-right arrow-icon"></i>
+    <div class="stage">No Cost Extension</div><i class="fa-solid fa-chevron-right arrow-icon"></i>
+    <div class="stage">Closeout</div><i class="fa-solid fa-chevron-right arrow-icon"></i>
+    <div class="stage">Closed</div>
+    <div style="width:100%;text-align:center;margin-top:6px;"><i class="fa-solid fa-arrow-down arrow-icon"></i> <div class="stage terminated" style="display:inline-block;">Terminated</div></div>
+  </div>
+  <div class="table-wrap"><table>
+    <tr><th><i class="fa-solid fa-tag"></i> Stage</th><th><i class="fa-solid fa-circle-info"></i> Description</th></tr>
+    <tr><td><strong>Pipeline</strong></td><td>Opportunity identified, proposal in development</td></tr>
+    <tr><td><strong>Awarded</strong></td><td>Award received, awaiting start date</td></tr>
+    <tr><td><strong>Active</strong></td><td>Funds being drawn, expenses tracked</td></tr>
+    <tr><td><strong>No Cost Extension</strong></td><td>Period extended without additional funding</td></tr>
+    <tr><td><strong>Closeout</strong></td><td>Final reports and reconciliation</td></tr>
+    <tr><td><strong>Closed</strong></td><td>Finalized and archived — irreversible</td></tr>
+    <tr><td><strong>Terminated</strong></td><td>Cancelled or ended early</td></tr>
+  </table></div>
+  <h3><i class="fa-solid fa-coins"></i> Grant Types</h3>
+  <div class="table-wrap"><table>
+    <tr><th>Type</th><th>Description</th><th>Billing Model</th></tr>
+    <tr><td><strong>Restricted</strong></td><td>Fixed budget — expenses tracked against approved categories</td><td>Budget-to-actual</td></tr>
+    <tr><td><strong>Reimbursable</strong></td><td>Expenses billed back to funder</td><td>Hourly Rate <em>or</em> Expense + Indirect %</td></tr>
+  </table></div>
+  <h3><i class="fa-solid fa-file-pen"></i> Amendment Tracking</h3>
+  <p>All modifications recorded with before/after data snapshots: budget changes, period extensions, scope changes, personnel changes, terminations. Each captures amendment number, effective date, funder reference, prior/new totals, and authorizing user.</p>
+</div>
+
+<!-- 5. FINANCIAL -->
+<div class="section-card fade-in" id="financial">
+  <h2 class="section-title"><span class="title-icon ni-5"><i class="fa-solid fa-file-invoice-dollar"></i></span> 5. Financial Management</h2>
+  <h3><i class="fa-solid fa-layer-group"></i> Three-Layer Budget Tracking</h3>
+  <ul class="icon-list">
+    <li><span class="li-icon" style="background:var(--secondary);"><i class="fa-solid fa-1"></i></span><strong>Total Budget:</strong> Overall award amount and allocation</li>
+    <li><span class="li-icon" style="background:var(--accent);"><i class="fa-solid fa-2"></i></span><strong>Budget Lines:</strong> Breakdown by expense category</li>
+    <li><span class="li-icon" style="background:var(--success);"><i class="fa-solid fa-3"></i></span><strong>Budget Periods:</strong> Allocation across fiscal periods</li>
+  </ul>
+  <p>Real-time health indicators (<span style="color:var(--success);font-weight:700;">green</span> / <span style="color:var(--warning);font-weight:700;">yellow</span> / <span style="color:var(--danger);font-weight:700;">red</span>) with automatic overspend detection.</p>
+  <h3><i class="fa-solid fa-book"></i> Workbook Lifecycle</h3>
+  <div class="lifecycle"><div class="stage">Open</div><i class="fa-solid fa-chevron-right arrow-icon"></i><div class="stage">Under Review</div><i class="fa-solid fa-chevron-right arrow-icon"></i><div class="stage">Locked</div><i class="fa-solid fa-chevron-right arrow-icon"></i><div class="stage">Approved</div></div>
+  <h3><i class="fa-solid fa-receipt"></i> Expense, Drawdown &amp; Billing</h3>
+  <ul>
+    <li><strong>Expense Management:</strong> Categorized monthly entry, vendor tracking, disallowed expense flagging</li>
+    <li><strong>Drawdowns:</strong> Submit → Approve → Paid workflow with cash receipt reconciliation</li>
+    <li><strong>Hourly Billing:</strong> Employee hours × rate + indirect costs</li>
+    <li><strong>Expense Billing:</strong> Direct expenses + configurable indirect cost %</li>
+    <li><strong>Indirect/Fringe Rates:</strong> Org-wide or grant-specific, salary bands, effort certifications</li>
+    <li><strong>FY Rollover:</strong> Automated new workbooks, carryforward balances, prior-year archive</li>
+  </ul>
+</div>
+
+<!-- 6. COMPLIANCE -->
+<div class="section-card fade-in" id="compliance">
+  <h2 class="section-title"><span class="title-icon ni-6"><i class="fa-solid fa-clipboard-check"></i></span> 6. Compliance &amp; Audit Management</h2>
+  <h3><i class="fa-solid fa-calendar-days"></i> Compliance Calendar</h3>
+  <p>Centralized tracking with due dates, configurable alerts (7-day, 1-day reminders), submission status, and document attachments.</p>
+  <h3><i class="fa-solid fa-magnifying-glass-dollar"></i> Single Audit &amp; SEFA</h3>
+  <p>Full lifecycle management, SEFA line-by-line tracking, CFDA matching ($750K+ threshold), auditor-ready export.</p>
+  <h3><i class="fa-solid fa-scale-balanced"></i> Matching &amp; Findings</h3>
+  <p>Required matching % tracking (cash/in-kind). Audit findings workflow:</p>
+  <div class="lifecycle"><div class="stage">Open</div><i class="fa-solid fa-chevron-right arrow-icon"></i><div class="stage">Response Due</div><i class="fa-solid fa-chevron-right arrow-icon"></i><div class="stage">Responded</div><i class="fa-solid fa-chevron-right arrow-icon"></i><div class="stage">Resolved</div><i class="fa-solid fa-chevron-right arrow-icon"></i><div class="stage">Closed</div></div>
+</div>
+
+<!-- 7. PIPELINE -->
+<div class="section-card fade-in" id="pipeline">
+  <h2 class="section-title"><span class="title-icon ni-7"><i class="fa-solid fa-filter"></i></span> 7. Pipeline &amp; Business Development</h2>
+  <div class="lifecycle"><div class="stage">Prospect</div><i class="fa-solid fa-chevron-right arrow-icon"></i><div class="stage">Qualified</div><i class="fa-solid fa-chevron-right arrow-icon"></i><div class="stage">Proposed</div><i class="fa-solid fa-chevron-right arrow-icon"></i><div class="stage">Awarded</div><i class="fa-solid fa-chevron-right arrow-icon"></i><div class="stage">Active</div></div>
+  <p>Probability scoring (0–100%), expected award dates/amounts, pipeline analytics (value by stage, success rate). Client-visible pipeline optional.</p>
+</div>
+
+<!-- 8. DOCUMENTS -->
+<div class="section-card fade-in" id="documents">
+  <h2 class="section-title"><span class="title-icon ni-8"><i class="fa-solid fa-folder-open"></i></span> 8. Document Management</h2>
+  <ul class="icon-list">
+    <li><span class="li-icon" style="background:var(--secondary);"><i class="fa-solid fa-cloud-arrow-up"></i></span> Centralized storage — Azure Cloud File Storage (grant documents, PDFs, attachments) with secure access controls</li>
+    <li><span class="li-icon" style="background:var(--accent);"><i class="fa-solid fa-tags"></i></span> Category-based organization (audit, compliance, funder, award letter)</li>
+    <li><span class="li-icon" style="background:var(--success);"><i class="fa-solid fa-share-nodes"></i></span> Client sharing controls &amp; version tracking via audit trail</li>
+    <li><span class="li-icon" style="background:var(--warning);"><i class="fa-solid fa-file"></i></span> PDF, Word, Excel, Images | Configurable size limits | Soft-delete</li>
+  </ul>
+</div>
+
+<!-- 9. REPORTING -->
+<div class="section-card fade-in" id="reporting">
+  <h2 class="section-title"><span class="title-icon ni-9"><i class="fa-solid fa-chart-pie"></i></span> 9. Reporting &amp; Analytics</h2>
+  <div class="table-wrap"><table>
+    <tr><th><i class="fa-solid fa-chart-bar"></i> Report</th><th>Description</th></tr>
+    <tr><td><i class="fa-solid fa-clock" style="color:var(--secondary);margin-right:6px;"></i> Billable Hours</td><td>Hours by employee, grant, and period</td></tr>
+    <tr><td><i class="fa-solid fa-wallet" style="color:var(--success);margin-right:6px;"></i> Cash Position</td><td>Cash-on-hand, outstanding drawdowns, receipts</td></tr>
+    <tr><td><i class="fa-solid fa-tags" style="color:var(--accent);margin-right:6px;"></i> Expense by Category</td><td>Spending by budget category</td></tr>
+    <tr><td><i class="fa-solid fa-user-clock" style="color:var(--superadmin);margin-right:6px;"></i> Effort Certification</td><td>Employee time allocation (% effort)</td></tr>
+    <tr><td><i class="fa-solid fa-chart-line" style="color:var(--warning);margin-right:6px;"></i> Expenditure Analysis</td><td>Trends, burn rate, exhaustion projections</td></tr>
+    <tr><td><i class="fa-solid fa-bug" style="color:var(--danger);margin-right:6px;"></i> Audit Findings</td><td>Open findings, severity, response status</td></tr>
+    <tr><td><i class="fa-solid fa-building-columns" style="color:var(--manager);margin-right:6px;"></i> Funder Analysis</td><td>Concentration by source, type distribution</td></tr>
+    <tr><td><i class="fa-solid fa-stopwatch" style="color:var(--staff);margin-right:6px;"></i> Hours Tracking</td><td>Labor hours by staff across grants</td></tr>
+    <tr><td><i class="fa-solid fa-file-invoice" style="color:var(--client);margin-right:6px;"></i> Invoice Aging</td><td>Outstanding by aging bucket (30/60/90)</td></tr>
+    <tr><td><i class="fa-solid fa-filter" style="color:#ec4899;margin-right:6px;"></i> Pipeline</td><td>Prospective grants by stage, probability</td></tr>
+  </table></div>
+  <p><strong>Exports:</strong> <i class="fa-solid fa-file-excel" style="color:var(--success);"></i> Excel &nbsp; <i class="fa-solid fa-file-pdf" style="color:var(--danger);"></i> PDF &nbsp; <i class="fa-solid fa-database" style="color:var(--secondary);"></i> SEFA — all audit-logged. Portfolio dashboard and global search for Superadmins.</p>
+</div>
+
+<!-- 10. CLIENT PORTAL -->
+<div class="section-card fade-in" id="client-portal">
+  <h2 class="section-title"><span class="title-icon ni-10"><i class="fa-solid fa-building"></i></span> 10. Client Portal</h2>
+  <div class="table-wrap"><table>
+    <tr><th><i class="fa-solid fa-puzzle-piece"></i> Feature</th><th>Description</th></tr>
+    <tr><td><i class="fa-solid fa-gauge-high" style="color:var(--secondary);margin-right:6px;"></i> Dashboard</td><td>Summary of funds, released amounts, balances</td></tr>
+    <tr><td><i class="fa-solid fa-list" style="color:var(--accent);margin-right:6px;"></i> Grant Overview</td><td>All grants with status, type, financials</td></tr>
+    <tr><td><i class="fa-solid fa-calendar-check" style="color:var(--warning);margin-right:6px;"></i> Compliance</td><td>Deadlines, submissions, document uploads</td></tr>
+    <tr><td><i class="fa-solid fa-folder" style="color:var(--superadmin);margin-right:6px;"></i> Documents</td><td>View shared docs, upload supporting files</td></tr>
+    <tr><td><i class="fa-solid fa-receipt" style="color:var(--success);margin-right:6px;"></i> Expense Submission</td><td>Submit reimbursable expenses with receipts</td></tr>
+    <tr><td><i class="fa-solid fa-comments" style="color:var(--manager);margin-right:6px;"></i> Messaging</td><td>Threaded messaging with staff, attachments</td></tr>
+    <tr><td><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--client);margin-right:6px;"></i> Onboarding</td><td>First-time setup wizard for new users</td></tr>
+  </table></div>
+</div>
+
+<!-- 11. COMMUNICATIONS -->
+<div class="section-card fade-in" id="communications">
+  <h2 class="section-title"><span class="title-icon ni-11"><i class="fa-solid fa-bell"></i></span> 11. Communications &amp; Notifications</h2>
+  <p><strong>Announcements:</strong> Platform-wide (maintenance, features, security) with priority levels and role-targeting. Critical announcements require acknowledgment.</p>
+  <div class="table-wrap"><table>
+    <tr><th><i class="fa-solid fa-bell"></i> Event</th><th><i class="fa-solid fa-clock"></i> Timing</th></tr>
+    <tr><td>Report due</td><td>7 days &amp; 1 day before</td></tr>
+    <tr><td>Closeout deadline</td><td>14 days &amp; 3 days before</td></tr>
+    <tr><td>User invitation / Password reset</td><td>Immediately</td></tr>
+    <tr><td>Compliance / Drawdown / Messages</td><td>On event</td></tr>
+  </table></div>
+  <p><strong>Client Messaging:</strong> Built-in threaded system with file attachments, replacing scattered email.</p>
+</div>
+
+<!-- 12. SECURITY -->
+<div class="section-card fade-in" id="security">
+  <h2 class="section-title"><span class="title-icon ni-12"><i class="fa-solid fa-lock"></i></span> 12. Security</h2>
+  <div class="highlight-box security"><strong><i class="fa-solid fa-shield-halved"></i> Security is a foundational design principle.</strong> Every layer — authentication through data storage to transmission — is built with enterprise-grade controls.</div>
+
+  <h3><i class="fa-solid fa-right-to-bracket"></i> 12.1 Authentication</h3>
+  <p>Email-based login with secure verification, four-tier role-based access control, organization-level isolation, session-bound tokens.</p>
+
+  <h3><i class="fa-solid fa-user-lock"></i> 12.2 Progressive Lockout (Cool-Off Periods)</h3>
+  <div class="lockout-visual">
+    <div class="lockout-step ls-1"><span class="lock-num">5 min</span><span class="lock-label">5 attempts · Level 1</span></div>
+    <div class="lockout-step ls-2"><span class="lock-num">15 min</span><span class="lock-label">10 attempts · Level 2</span></div>
+    <div class="lockout-step ls-3"><span class="lock-num">30 min</span><span class="lock-label">15 attempts · Level 3</span></div>
+    <div class="lockout-step ls-4"><span class="lock-num">60 min</span><span class="lock-label">20+ attempts · Max</span></div>
+  </div>
+  <div class="highlight-box security"><strong><i class="fa-solid fa-network-wired"></i> Dual tracking:</strong> By <strong>both IP and email</strong> simultaneously. All failed attempts permanently logged.</div>
+
+  <h3><i class="fa-solid fa-mobile-screen"></i> 12.3 Two-Factor Authentication</h3>
+  <div class="security-grid">
+    <div class="security-card"><h4><i class="fa-solid fa-qrcode"></i> Setup</h4><ul><li>Time-based verification codes</li><li>QR code wizard + manual entry</li><li>No external dependencies</li></ul></div>
+    <div class="security-card"><h4><i class="fa-solid fa-shield-halved"></i> Protection</h4><ul><li>30-sec rotation, ±1 tolerance</li><li>8 backup recovery codes</li><li>Replay prevention, 5-attempt lockout</li></ul></div>
+  </div>
+  <p>Compatible with Microsoft Authenticator, Google Authenticator, Authy. Manager &amp; Superadmin roles.</p>
+
+  <h3><i class="fa-solid fa-fingerprint"></i> 12.4 Session Security</h3>
+  <div class="table-wrap"><table>
+    <tr><th>Mechanism</th><th>Protection</th></tr>
+    <tr><td><strong>ID Regeneration</strong></td><td>New session ID on login — prevents fixation</td></tr>
+    <tr><td><strong>Fingerprinting</strong></td><td>Secure binding of session to device and network — detects hijacking</td></tr>
+    <tr><td><strong>Absolute Timeout</strong></td><td>8-hour max session</td></tr>
+    <tr><td><strong>Idle Timeout</strong></td><td>30 min (configurable)</td></tr>
+    <tr><td><strong>Role Revalidation</strong></td><td>Every 5 minutes from DB</td></tr>
+    <tr><td><strong>Force-Logout</strong></td><td>Immediate session termination by admin</td></tr>
+    <tr><td><strong>DB Tracking</strong></td><td>IP, device, start, last activity</td></tr>
+  </table></div>
+
+  <h3><i class="fa-solid fa-key"></i> 12.5 Password &amp; IP Security</h3>
+  <ul class="icon-list">
+    <li><span class="li-icon" style="background:var(--success);"><i class="fa-solid fa-lock"></i></span> Industry-standard password encryption, configurable policy (length, upper, lower, numbers, special)</li>
+    <li><span class="li-icon" style="background:var(--warning);"><i class="fa-solid fa-clock-rotate-left"></i></span> History: prevents reuse of last 5 passwords | Force reset capability</li>
+    <li><span class="li-icon" style="background:var(--danger);"><i class="fa-solid fa-location-dot"></i></span> Every action tied to IP address and device — complete access trail across all devices</li>
+    <li><span class="li-icon" style="background:var(--secondary);"><i class="fa-solid fa-network-wired"></i></span> Org-level IP allowlisting with network range restrictions | Superadmin exempt | All blocks logged</li>
+  </ul>
+
+  <h3><i class="fa-solid fa-scroll"></i> 12.6 Audit Logging</h3>
+  <div class="security-grid">
+    <div class="security-card"><h4><i class="fa-solid fa-list-check"></i> What Is Logged</h4><ul><li>Every create, update, and delete action (with before/after values recorded)</li><li>All authentication events (login, two-factor verification, etc.)</li><li>Access events, IP blocks</li><li>Exports and integration calls</li><li>Admin actions (user/role changes)</li></ul></div>
+    <div class="security-card"><h4><i class="fa-solid fa-database"></i> Data Per Event</h4><ul><li>User ID + Org context</li><li>IP address + device information</li><li>UTC timestamp</li><li>Old/new values as structured data</li><li>Description/reason</li></ul></div>
+  </div>
+  <p>Excel export for SOC 2 evidence. 10-year retention. Append-only (immutable).</p>
+
+  <h3><i class="fa-solid fa-tower-broadcast"></i> 12.7 Integration, Headers &amp; Data Protection</h3>
+  <ul>
+    <li><strong>Third-Party Access:</strong> Secure access token (encrypted), 100 req/hr rate limit, read-only, all calls logged</li>
+    <li><strong>Headers:</strong> Comprehensive browser security headers (prevents unauthorized embedding, script injection, and cross-site attacks)</li>
+    <li><strong>Form Validation:</strong> Form validation tokens required on all data submissions (prevents unauthorized form submissions)</li>
+    <li><strong>Data:</strong> Secure database queries and output encoding (prevents unauthorized data access and script injection), soft-delete, HTTPS enforced</li>
+    <li><strong>Retention:</strong> 7 years grants, 10 years audit logs (configurable)</li>
+  </ul>
+
+  <h3><i class="fa-solid fa-building-lock"></i> 12.8 Multi-Tenant Isolation &amp; Azure Security</h3>
+  <div class="highlight-box security"><strong><i class="fa-solid fa-lock"></i> Complete segregation:</strong> Every query filtered by org ID. Staff access only assigned orgs. Clients locked to own org — cross-tenant access architecturally impossible. Re-validated every 5 minutes.</div>
+  <p><strong>Azure advantages:</strong> Azure AD (single sign-on potential), Key Vault, cyberattack protection, Microsoft Defender, geo-redundant backups, SOC 2 Type II infrastructure, network security groups, private endpoints, industry-standard encryption for stored data.</p>
+
+  <h3><i class="fa-solid fa-shield-halved"></i> 12.9 The 14 Security Layers — Explained</h3>
+  <div class="highlight-box security" style="border-color:#34d399;background:linear-gradient(135deg,#ecfdf5,#f0fdf4);">
+    <strong><i class="fa-solid fa-layer-group" style="color:#10b981;"></i> What "14 Security Layers" means:</strong> The GMS implements 14 distinct, independently functioning security controls — each protecting the system at a different level. These layers work together so that even if one layer is bypassed, the remaining layers continue to protect client data:
+  </div>
+  <div class="table-wrap"><table>
+    <tr><th style="width:40px;">#</th><th><i class="fa-solid fa-shield-halved"></i> Security Layer</th><th>What It Does</th></tr>
+    <tr><td><strong>1</strong></td><td>Secure Password Encryption</td><td>Passwords stored as irreversible encrypted values — cannot be read even with database access</td></tr>
+    <tr><td><strong>2</strong></td><td>Progressive Brute-Force Lockout</td><td>Escalating cool-off periods (5→15→30→60 min) after failed login attempts</td></tr>
+    <tr><td><strong>3</strong></td><td>Two-Factor Authentication (2FA)</td><td>Time-based verification code as a second login step via authenticator apps (Microsoft, Google, Authy)</td></tr>
+    <tr><td><strong>4</strong></td><td>Session Fingerprinting</td><td>Secure binding of session to IP address and device — detects hijacking</td></tr>
+    <tr><td><strong>5</strong></td><td>Session Timeouts (Idle + Absolute)</td><td>30-min idle timeout + 8-hour max session — prevents unattended access</td></tr>
+    <tr><td><strong>6</strong></td><td>Form Validation Protection</td><td>Unique validation tokens on all forms — prevents unauthorized form submissions</td></tr>
+    <tr><td><strong>7</strong></td><td>Secure Database Queries</td><td>100% secure database queries using industry-standard safety protocols</td></tr>
+    <tr><td><strong>8</strong></td><td>Script Injection Prevention</td><td>All user-generated content encoded before rendering — no script injection possible</td></tr>
+    <tr><td><strong>9</strong></td><td>Security Headers</td><td>Comprehensive browser security headers preventing unauthorized embedding and cross-site attacks</td></tr>
+    <tr><td><strong>10</strong></td><td>Role-Based Access Control (RBAC)</td><td>Four-tier hierarchy enforced across every screen and integration point</td></tr>
+    <tr><td><strong>11</strong></td><td>Multi-Tenant Data Isolation</td><td>Every database query filtered by organization — cross-tenant access impossible</td></tr>
+    <tr><td><strong>12</strong></td><td>IP Allowlisting</td><td>Organization-level network restrictions — block access from unauthorized networks</td></tr>
+    <tr><td><strong>13</strong></td><td>Immutable Audit Trail</td><td>Every action logged with user, IP, timestamp, old/new values — append-only</td></tr>
+    <tr><td><strong>14</strong></td><td>HTTPS Enforcement</td><td>All traffic encrypted in transit — no HTTP access permitted</td></tr>
+  </table></div>
+
+  <div class="highlight-box" style="border-color:#10b981;background:linear-gradient(135deg,#ecfdf5,#f0fdf9);">
+    <strong><i class="fa-solid fa-plus-circle" style="color:#10b981;"></i> Continuous Security Enhancement:</strong> Additional security features will be added based on Citrin Cooperman's specific requirements. Examples include: advanced two-factor authentication enforcement policies, single sign-on integration via Azure AD, automated threat detection alerts, enhanced password complexity rules, device trust policies, and geo-blocking. The platform's architecture is designed to support new security layers without disrupting existing functionality.
+  </div>
+</div>
+
+<!-- 13. CUSTOMIZATION -->
+<div class="section-card fade-in" id="customization">
+  <h2 class="section-title"><span class="title-icon ni-13"><i class="fa-solid fa-palette"></i></span> 13. Platform Configuration</h2>
+  <p><strong>Branding:</strong> Custom name, logo, favicon, brand color, login message, email templates, report headers.</p>
+  <div class="table-wrap"><table>
+    <tr><th>Category</th><th>Configurable Parameters</th></tr>
+    <tr><td><strong>Security</strong></td><td>Login attempts, lockout duration, session timeout, password policy, IP allowlisting</td></tr>
+    <tr><td><strong>Email</strong></td><td>Email server, port, credentials, encryption, sender</td></tr>
+    <tr><td><strong>Features</strong></td><td>Enable/disable Two-Factor Authentication, third-party integrations, branding</td></tr>
+    <tr><td><strong>Retention</strong></td><td>Grant and audit log retention periods (years)</td></tr>
+  </table></div>
+  <p>Multi-tenant override: Individual organizations can override system defaults.</p>
+</div>
+
+<!-- 14. SCALABILITY -->
+<div class="section-card fade-in" id="scalability">
+  <h2 class="section-title"><span class="title-icon ni-14"><i class="fa-solid fa-expand"></i></span> 14. Scalability &amp; Growth</h2>
+  <ul class="icon-list">
+    <li><span class="li-icon" style="background:var(--secondary);"><i class="fa-solid fa-building"></i></span> Multi-tenant — unlimited organizations, no infrastructure changes</li>
+    <li><span class="li-icon" style="background:var(--accent);"><i class="fa-solid fa-users"></i></span> Role-based staffing — reassign workloads dynamically</li>
+    <li><span class="li-icon" style="background:var(--success);"><i class="fa-solid fa-arrows-up-down"></i></span> Azure App Service auto-scaling</li>
+    <li><span class="li-icon" style="background:var(--warning);"><i class="fa-solid fa-database"></i></span> Microsoft Azure Database — scales to handle large volumes of data</li>
+    <li><span class="li-icon" style="background:var(--superadmin);"><i class="fa-solid fa-hard-drive"></i></span> Azure Cloud File Storage — unlimited document storage</li>
+    <li><span class="li-icon" style="background:var(--danger);"><i class="fa-solid fa-plug"></i></span> Third-party integration capability for connecting with other systems</li>
+  </ul>
+</div>
+
+<!-- 15. SERVICE LINES -->
+<div class="section-card fade-in" id="service-lines">
+  <h2 class="section-title"><span class="title-icon ni-15"><i class="fa-solid fa-briefcase"></i></span> 15. How GMS Serves Each Service Line</h2>
+  <div class="service-grid">
+    <div class="service-card"><div class="service-card-header sc-1"><i class="fa-solid fa-calculator"></i> Accounting</div><div class="service-card-body"><ul><li>Three-layer budget tracking</li><li>Expense categorization &amp; vendor tracking</li><li>FY rollover with carryforward</li><li>Cash position &amp; reconciliation</li><li>Invoice generation &amp; accounts receivable aging</li></ul></div></div>
+    <div class="service-card"><div class="service-card-header sc-2"><i class="fa-solid fa-landmark"></i> Taxation</div><div class="service-card-body"><ul><li>CFDA number tracking</li><li>SEFA preparation &amp; export</li><li>Indirect cost rate mgmt</li><li>Fringe benefit tracking</li><li>Federal record compliance</li></ul></div></div>
+    <div class="service-card"><div class="service-card-header sc-3"><i class="fa-solid fa-magnifying-glass"></i> Auditing</div><div class="service-card-body"><ul><li>Single audit (OMB)</li><li>Findings with response workflow</li><li>Audit trail — SOC 2 ready</li><li>Compliance calendar</li><li>Audit log Excel export</li></ul></div></div>
+    <div class="service-card"><div class="service-card-header sc-4"><i class="fa-solid fa-lightbulb"></i> Advisory</div><div class="service-card-body"><ul><li>Pipeline management</li><li>Portfolio analytics</li><li>Funder concentration risk</li><li>Burn-rate projections</li><li>Client-facing dashboards</li></ul></div></div>
+  </div>
+</div>
+
+<!-- 16. AZURE -->
+<div class="section-card fade-in" id="azure">
+  <h2 class="section-title"><span class="title-icon ni-16"><i class="fa-brands fa-microsoft"></i></span> 16. Azure Deployment Advantages</h2>
+  <div class="table-wrap"><table>
+    <tr><th><i class="fa-brands fa-microsoft"></i> Service</th><th>Purpose</th><th>Benefit</th></tr>
+    <tr><td><strong>App Service</strong></td><td>Web hosting</td><td>Auto-scaling, secure connections, custom domains</td></tr>
+    <tr><td><strong>Database for MySQL</strong> (where all grant data is stored)</td><td>Database</td><td>Automatic backups, high availability, encryption at rest</td></tr>
+    <tr><td><strong>Cloud File Storage</strong> (documents, PDFs, attachments)</td><td>Files</td><td>Unlimited, geo-redundant, secure access controls</td></tr>
+    <tr><td><strong>Key Vault</strong></td><td>Secrets</td><td>Credentials never in code</td></tr>
+    <tr><td><strong>Monitor</strong></td><td>Monitoring</td><td>Metrics, errors, alerting</td></tr>
+    <tr><td><strong>Defender</strong></td><td>Security</td><td>Vulnerability scanning, threat detection</td></tr>
+    <tr><td><strong>Cyberattack Protection</strong></td><td>Mitigation</td><td>Automatic protection against high-volume attacks</td></tr>
+    <tr><td><strong>Backup</strong></td><td>Disaster Recovery</td><td>Geo-redundant across data centers</td></tr>
+  </table></div>
+  <div class="highlight-box security"><strong><i class="fa-solid fa-certificate"></i> SOC 2:</strong> Azure is independently audited for SOC 1/2/3. The GMS inherits infrastructure certification and provides application-level audit logging, access controls, and encryption for a complete SOC 2 foundation.</div>
+</div>
+
+<!-- 17. AI NOTE -->
+<div class="section-card fade-in" id="ai-note">
+  <h2 class="section-title"><span class="title-icon ni-17"><i class="fa-solid fa-robot"></i></span> 17. Development Transparency Note</h2>
+  <h3><i class="fa-solid fa-wrench"></i> How Multiple AI and Human Expertise Were Used</h3>
+  <p>Multiple AI tools were used as <strong>development assistants only</strong> — similar to code editors. Combined with <strong>human expertise</strong> in grant management, accounting, and software architecture, the AI assisted with code generation, review, and debugging. All output was reviewed, tested, and validated by experienced professionals.</p>
+  <h3><i class="fa-solid fa-server"></i> Deployed System</h3>
+  <ul class="icon-list">
+    <li><span class="li-icon" style="background:var(--danger);"><i class="fa-solid fa-ban"></i></span><strong>No AI runs in the deployed application</strong></li>
+    <li><span class="li-icon" style="background:var(--success);"><i class="fa-solid fa-user-shield"></i></span><strong>No client data processed by any AI service</strong></li>
+    <li><span class="li-icon" style="background:var(--secondary);"><i class="fa-solid fa-plug"></i></span><strong>No ongoing AI dependencies</strong> — fully independent</li>
+    <li><span class="li-icon" style="background:var(--accent);"><i class="fa-solid fa-magnifying-glass"></i></span>Fully auditable, standard codebase | No artificial intelligence components embedded</li>
+  </ul>
+  <p><strong>Compliance:</strong> SOC 2 audits focus on deployed controls, not dev tools. Fully compatible with Citrin Cooperman's requirements on Azure.</p>
+</div>
+
+</div><!-- /content -->
+</div><!-- /main -->
+
+<!-- FOOTER -->
+<footer class="footer has-sidebar">
+  <span class="f-badge"><i class="fa-solid fa-lock"></i> Internal Use Only — Subject to Changes Until Finalized</span>
+  <div class="footer-links">
+    <a href="GMS-Feature-Overview.html" class="active"><i class="fa-solid fa-star"></i> Feature Overview</a>
+    <a href="GMS-Workflow-Guide.html"><i class="fa-solid fa-diagram-project"></i> Workflow Guide</a>
+    <a href="GMS-Testing-Deployment-Plan.html"><i class="fa-solid fa-rocket"></i> Testing &amp; Deployment</a>
+    <a href="maintenance-plan.html"><i class="fa-solid fa-wrench"></i> Maintenance Plan</a>
+    <a href="GMS-Comments.html"><i class="fa-solid fa-comments"></i> Forum</a>
+  </div>
+  <div class="footer-divider"></div>
+  <p>Grant Management System — Prepared for <strong style="color:#fff;">Citrin Cooperman</strong></p>
+  <p>March 2026 &nbsp;|&nbsp; <i class="fa-brands fa-microsoft"></i> Microsoft Azure &nbsp;|&nbsp; V1.0</p>
+  <p class="footer-author"><i class="fa-solid fa-user-pen"></i> Khushbu Shah, CPA (License Pending) &nbsp;&bull;&nbsp; kshah1@citrincooperman.com</p>
+  <p class="footer-copy">&copy; 2026 Grant Management System — All Rights Reserved</p>
+</footer>
+
+<!-- BACK TO TOP -->
+<button class="back-to-top" id="backToTop"><i class="fa-solid fa-arrow-up"></i></button>
+
+<script>
+// Particles
+(function(){const c=document.getElementById('particles');if(!c)return;for(let i=0;i<25;i++){const p=document.createElement('div');p.className='particle';p.style.left=Math.random()*100+'%';p.style.animationDuration=(6+Math.random()*10)+'s';p.style.animationDelay=Math.random()*8+'s';p.style.width=p.style.height=(1+Math.random()*3)+'px';c.appendChild(p);}})();
+
+// Smooth scroll
+document.querySelectorAll('a[href^="#"]').forEach(a=>{a.addEventListener('click',e=>{e.preventDefault();const t=document.querySelector(a.getAttribute('href'));if(t)t.scrollIntoView({behavior:'smooth',block:'start'});});});
+
+// Back to top
+const btn=document.getElementById('backToTop');
+window.addEventListener('scroll',()=>{btn.classList.toggle('visible',window.scrollY>400);});
+btn.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
+
+// Fade-in observer
+const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');obs.unobserve(e.target);}});},{threshold:0.08,rootMargin:'0px 0px -30px 0px'});
+document.querySelectorAll('.fade-in').forEach(el=>obs.observe(el));
+
+// Counter animation
+const cObs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){const el=e.target,tgt=+el.dataset.target;let cur=0;const step=Math.max(1,Math.ceil(tgt/25));const t=setInterval(()=>{cur+=step;if(cur>=tgt){cur=tgt;clearInterval(t);}el.textContent=cur;},50);cObs.unobserve(el);}});},{threshold:0.5});
+document.querySelectorAll('.stat-number[data-target]').forEach(el=>cObs.observe(el));
+
+// Sidebar active tracking
+const sections=document.querySelectorAll('[id]');
+const navLinks=document.querySelectorAll('.sidebar-nav a');
+const sObs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){navLinks.forEach(l=>{l.classList.toggle('active',l.getAttribute('href')==='#'+e.target.id);});}});},{threshold:0.15,rootMargin:'-80px 0px -60% 0px'});
+sections.forEach(s=>{if(s.id&&document.querySelector('.sidebar-nav a[href="#'+s.id+'"]'))sObs.observe(s);});
+
+// Download 3 core doc pages combined as PDF
+function downloadAllPagesAsPDF(e){
+  e=e||window.event;
+  var btn=e.currentTarget||e.srcElement;if(!btn||btn.tagName==='I')btn=btn.closest?btn.closest('.nav-action,.mobile-nav-action'):btn.parentElement;
+  var pages=['GMS-Feature-Overview.html','GMS-Workflow-Guide.html','GMS-Testing-Deployment-Plan.html'];
+  var origHTML=btn.innerHTML;
+  btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>';
+  btn.style.pointerEvents='none';
+
+  function stripMedia(css){
+    var out='',i=0;
+    while(i<css.length){
+      var rest=css.substring(i);
+      var mw=rest.match(/^@media\s*\(\s*max-width\s*:\s*\d+px\s*\)/);
+      var mp=rest.match(/^@media\s+print\b/);
+      var mr=rest.match(/^@media\s*\(\s*prefers-reduced-motion/);
+      if(mw||mp||mr){
+        var j=i+(mw||mp||mr)[0].length;
+        while(j<css.length&&css[j]!=='{')j++;
+        if(j<css.length){var d=0,k=j;do{if(css[k]==='{')d++;else if(css[k]==='}')d--;k++;}while(k<css.length&&d>0);i=k;continue;}
+      }
+      out+=css[i];i++;
+    }
+    return out;
+  }
+
+  var ts=Date.now();
+  Promise.all([
+    fetch(pages[0]+'?t='+ts).then(function(r){return r.text();}),
+    fetch(pages[1]+'?t='+ts).then(function(r){return r.text();}),
+    fetch(pages[2]+'?t='+ts).then(function(r){return r.text();}),
+    fetch('docs-common.css?t='+ts).then(function(r){return r.text();})
+  ])
+  .then(function(results){
+    var htmls=[results[0],results[1],results[2]];
+    var commonCSS=results[3];
+    var win=window.open('','_blank');
+    if(!win){alert('Please allow pop-ups to download the PDF.');btn.innerHTML=origHTML;btn.style.pointerEvents='';return;}
+
+    var d=win.document;
+    d.open();
+    d.write('<!DOCTYPE html><html><head><meta charset="UTF-8">');
+    d.write('<title>Grant Management System — Complete Documentation</title>');
+
+    /* Inline Font Awesome CSS directly to avoid load delay */
+    d.write('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" crossorigin="anonymous">');
+
+    /* Shared CSS (stripped of responsive/print blocks) */
+    var sc=stripMedia(commonCSS);
+    if(sc.trim()) d.write('<style>'+sc+'</style>');
+
+    /* Per-page inline styles */
+    var seen=new Set();
+    htmls.forEach(function(h){
+      var m=h.match(/<style[^>]*>([\s\S]*?)<\/style>/gi);
+      if(m) m.forEach(function(s){
+        var inner=s.replace(/<\/?style[^>]*>/gi,'');
+        inner=stripMedia(inner);
+        if(inner.trim()&&!seen.has(inner)){seen.add(inner);d.write('<style>'+inner+'</style>');}
+      });
+    });
+
+    /* Print-optimized overrides */
+    d.write('<style>');
+    d.write('@page{margin:1cm 1.2cm;size:A4;}');
+    d.write('*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;animation:none!important;transition:none!important;}');
+    d.write('body,html{margin:0;padding:0;font-family:"Segoe UI",system-ui,-apple-system,sans-serif;font-size:10.5pt;line-height:1.6;background:#fff!important;width:100%!important;}');
+    d.write('.top-nav,.sidebar,.back-to-top,.hero-particles,.hero-orb,.nav-right,.nav-badge,.option-tabs,.scroll-top,.compose-card,.inline-reply-form,.filter-toolbar,.reactions-bar,.add-reaction-btn,.forum-stats,.action-btn,.collapse-btn,.mobile-nav,.mobile-nav-overlay,.nav-hamburger,.scroll-progress{display:none!important;}');
+    d.write('.main{margin-left:0!important;margin-top:0!important;}');
+    d.write('.footer{margin-left:0!important;padding:16px!important;page-break-inside:avoid;}');
+    d.write(':root{--sidebar-w:0px;}');
+    d.write('.fade-in,.slide-in-left,.scale-in,.stagger-in>*{opacity:1!important;transform:none!important;}');
+    d.write('.option-content{display:block!important;}');
+    d.write('.page-separator{page-break-before:always;break-before:always;height:0;margin:0;padding:0;border:none;}');
+    d.write('.hero{display:block!important;padding:28px 28px 22px!important;min-height:auto!important;overflow:visible!important;background:#0f172a!important;page-break-after:avoid;break-after:avoid;position:relative!important;margin:0!important;}');
+    d.write('.hero::before,.hero::after{display:none!important;}');
+    d.write('.hero-content{max-width:100%;}');
+    d.write('.hero h1{font-size:24pt!important;-webkit-text-fill-color:#fff!important;background:none!important;color:#fff!important;margin-bottom:8px!important;}');
+    d.write('.hero p{color:rgba(255,255,255,.8)!important;}');
+    d.write('.hero .subtitle{font-size:11pt!important;margin-bottom:10px!important;color:rgba(255,255,255,.8)!important;-webkit-text-fill-color:rgba(255,255,255,.8)!important;}');
+    d.write('.hero-badge{font-size:8pt!important;padding:4px 12px!important;margin-bottom:10px!important;backdrop-filter:none!important;background:rgba(255,255,255,.1)!important;border:1px solid rgba(255,255,255,.2)!important;color:#fff!important;display:inline-block!important;}');
+    d.write('.hero-meta{gap:8px!important;display:flex!important;flex-wrap:wrap!important;}');
+    d.write('.hero-meta-item{font-size:9pt!important;padding:4px 10px!important;background:rgba(255,255,255,.1)!important;border-radius:6px!important;color:rgba(255,255,255,.85)!important;}');
+    d.write('.stats-row{display:grid!important;grid-template-columns:repeat(4,1fr)!important;margin-top:12px!important;padding:0 10px!important;gap:8px!important;}');
+    d.write('.stat-card{padding:10px 6px!important;box-shadow:none!important;border:1px solid #d1d5db!important;page-break-inside:avoid;break-inside:avoid;}');
+    d.write('.stat-number{font-size:18pt!important;}');
+    d.write('.stat-icon{width:28px!important;height:28px!important;font-size:12px!important;}');
+    d.write('.stat-label{font-size:8pt!important;}');
+    d.write('.content{padding:6px 10px 10px!important;max-width:100%!important;}');
+    d.write('.main-content{margin-top:0!important;padding:10px!important;}');
+    d.write('.section-card{box-shadow:none!important;border:1px solid #d1d5db!important;padding:18px!important;margin:10px 0!important;page-break-inside:auto!important;break-inside:auto!important;overflow:visible!important;}');
+    d.write('h2.section-title,h3,h4{page-break-after:avoid!important;break-after:avoid!important;}');
+    d.write('h2.section-title{font-size:14pt!important;padding-bottom:8px!important;margin-bottom:12px!important;}');
+    d.write('.comparison-grid{display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important;}');
+    d.write('.priority-grid{display:grid!important;grid-template-columns:repeat(4,1fr)!important;gap:8px!important;}');
+    d.write('.security-grid,.service-grid{gap:8px!important;}');
+    d.write('.flow-branches{display:grid!important;grid-template-columns:1fr 80px 1fr!important;}');
+    d.write('.timeline-bar-row{display:grid!important;grid-template-columns:180px 1fr!important;gap:10px!important;}');
+    d.write('.role-card,.security-card,.service-card,.phase-card,.option-card{box-shadow:none!important;overflow:visible!important;border:1px solid #d1d5db!important;}');
+    d.write('.role-card-header,.phase-card-header{backdrop-filter:none!important;}');
+    d.write('.pros-card,.cons-card{box-shadow:none!important;padding:14px 18px!important;overflow:visible!important;}');
+    d.write('.highlight-box{overflow:visible!important;padding:12px 16px!important;margin:10px 0!important;page-break-inside:avoid;break-inside:avoid;}');
+    d.write('.deploy-timeline{padding:16px 0 16px 44px!important;}');
+    d.write('.deploy-step{box-shadow:none!important;border:1px solid #d1d5db!important;page-break-inside:avoid;break-inside:avoid;}');
+    d.write('.flowchart,.azure-arch,.change-flow{box-shadow:none!important;border:1px solid #d1d5db!important;overflow:visible!important;page-break-inside:avoid;break-inside:avoid;}');
+    d.write('table{font-size:9pt!important;}');
+    d.write('table th{padding:6px 8px!important;}');
+    d.write('table td{padding:5px 8px!important;}');
+    d.write('.table-wrap{overflow:visible!important;}');
+    d.write('*:hover{transform:none!important;box-shadow:none!important;}');
+    d.write('a{color:#3b82f6!important;text-decoration:none!important;}');
+    d.write('</style>');
+    d.write('</head><body>');
+
+    htmls.forEach(function(html,i){
+      if(i>0) d.write('<div class="page-separator"></div>');
+      var bodyMatch=html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+      if(bodyMatch){
+        var content=bodyMatch[1];
+        content=content.replace(/<script[\s\S]*?<\/script>/gi,'');
+        content=content.replace(/<nav class="top-nav"[\s\S]*?<\/nav>/gi,'');
+        content=content.replace(/<div class="mobile-nav-overlay"><\/div>/gi,'');
+        content=content.replace(/<nav class="mobile-nav"[\s\S]*?<\/nav>/gi,'');
+        content=content.replace(/<aside class="sidebar"[\s\S]*?<\/aside>/gi,'');
+        content=content.replace(/<div class="back-to-top[\s\S]*?<\/div>/gi,'');
+        content=content.replace(/<button class="scroll-top[\s\S]*?<\/button>/gi,'');
+        content=content.replace(/<button class="back-to-top[\s\S]*?<\/button>/gi,'');
+        d.write('<div class="doc-page" id="page-'+i+'">'+content+'</div>');
+      }
+    });
+
+    d.write('</body></html>');
+    d.close();
+
+    /* Wait for FA icons to render, then trigger print */
+    var printed=false;
+    function doPrint(){if(printed)return;printed=true;win.focus();win.print();}
+    win.onload=function(){setTimeout(doPrint,1500);};
+    win.onafterprint=function(){win.close();};
+    setTimeout(doPrint,3500);
+
+    btn.innerHTML=origHTML;
+    btn.style.pointerEvents='';
+  })
+  .catch(function(err){
+    console.error('PDF download failed:',err);
+    alert('Failed to load pages. Please try again.');
+    btn.innerHTML=origHTML;
+    btn.style.pointerEvents='';
+  });
+}
+</script>
+<script src="docs-common.js"></script>
+</body>
+</html>
