@@ -409,7 +409,7 @@ textarea.form-input{min-height:100px;resize:vertical;line-height:1.7;}
 </footer>
 
 <!-- TOAST -->
-<div class="toast" id="toast"><i class="fa-solid fa-circle-check"></i> <span id="toastMsg">Posted!</span></div>
+<div class="toast" id="toast"><i class="fa-solid fa-circle-check" id="toastIcon"></i> <span id="toastMsg">Posted!</span></div>
 
 <!-- SCROLL TO TOP -->
 <button class="scroll-top" id="scrollTop" title="Back to top"><i class="fa-solid fa-arrow-up"></i></button>
@@ -446,6 +446,7 @@ function getAvatarColor(name){
   return avatarColors[Math.abs(h)%avatarColors.length];
 }
 function formatTime(d){
+  if(isNaN(d.getTime())) return {ago:'Unknown',dateStr:'Unknown',timeStr:''};
   const s=Math.floor((Date.now()-d)/1000);
   let ago;
   if(s<60) ago='Just now';
@@ -459,7 +460,8 @@ function formatTime(d){
 
   return {ago, dateStr, timeStr};
 }
-function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function escapeHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML.replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function isValidId(id){return typeof id==='string'&&/^[a-z0-9]+$/.test(id);}
 
 // --- NAME VALIDATION ---
 const NAME_REGEX = /^[a-zA-Z\s'\-\.]+$/;
@@ -537,18 +539,26 @@ function updateCharCount(){
 })();
 
 // --- SERVER API ---
+let loadRetries = 0;
+const MAX_LOAD_RETRIES = 3;
+
 async function loadComments(){
   try{
     const res = await fetch(API_URL);
     if(!res.ok) throw new Error('Failed to load');
     commentsData = await res.json();
+    loadRetries = 0;
     updateAuthorDropdown();
     updateStats();
     applyFilters();
   }catch(err){
-    console.error('Load error:', err);
-    showToast('Could not load discussions. Retrying...');
-    setTimeout(loadComments, 3000);
+    if(loadRetries < MAX_LOAD_RETRIES){
+      loadRetries++;
+      showToast('Could not load discussions. Retrying...','error');
+      setTimeout(loadComments, 3000);
+    } else {
+      showToast('Could not load discussions. Please refresh the page.','error');
+    }
   }
 }
 
@@ -583,12 +593,9 @@ function countReactions(comments){
   });
   return n;
 }
-function collectAuthorsSet(comments,set){
-  comments.forEach(c=>{set.add(c.name);if(c.replies)collectAuthorsSet(c.replies,set);});
-}
 function updateStats(){
   document.getElementById('statThreads').textContent=commentsData.length;
-  const authors=new Set();collectAuthorsSet(commentsData,authors);
+  const authors=new Set();collectAuthors(commentsData,authors);
   document.getElementById('statParticipants').textContent=authors.size;
   document.getElementById('statReactions').textContent=countReactions(commentsData);
 }
@@ -598,50 +605,53 @@ const EMOJIS = ['👍','❤️','🎯','💡','👏','🔥'];
 const myReactions = JSON.parse(localStorage.getItem('gms_reactions')||'{}');
 
 function renderComment(c, depth){
+  if(!c.id||!isValidId(c.id)) return '';
+  const sid = c.id;
   const date = new Date(c.time);
   const t = formatTime(date);
   const replyCount = c.replies ? countAll(c.replies) : 0;
-  const isCollapsed = collapsedSet.has(c.id);
+  const isCollapsed = collapsedSet.has(sid);
   const reactions = c.reactions || {};
+  const safeCat = c.category && CAT_LABELS[c.category] ? c.category : '';
 
   let reactionHtml = '';
   EMOJIS.forEach(em=>{
     const count = reactions[em]||0;
     if(count > 0){
-      const myKey = c.id+'_'+em;
+      const myKey = sid+'_'+em;
       const isActive = myReactions[myKey] ? ' active' : '';
-      reactionHtml += `<button class="reaction-chip${isActive}" onclick="toggleReaction('${c.id}','${em}')">${em}<span class="r-count">${count}</span></button>`;
+      reactionHtml += `<button class="reaction-chip${isActive}" onclick="toggleReaction('${sid}','${em}')">${em}<span class="r-count">${count}</span></button>`;
     }
   });
 
-  let html = `<div class="comment-card" data-id="${c.id}">
+  let html = `<div class="comment-card" data-id="${sid}">
     <div class="comment-header">
       <div class="comment-avatar" style="background:${getAvatarColor(c.name)}">${getInitials(c.name)}</div>
       <div class="comment-meta">
-        <div class="comment-name"><span class="name-text">${escapeHtml(c.name)}</span>${c.category?`<span class="cat-badge cat-${c.category}">${CAT_LABELS[c.category]||c.category}</span>`:''}</div>
+        <div class="comment-name"><span class="name-text">${escapeHtml(c.name)}</span>${safeCat?`<span class="cat-badge cat-${safeCat}">${CAT_LABELS[safeCat]}</span>`:''}</div>
         <div class="comment-time"><i class="fa-regular fa-clock"></i> ${t.ago}<span class="time-dot"></span>${t.dateStr} at ${t.timeStr}</div>
       </div>
     </div>
     <div class="comment-body">${escapeHtml(c.text).replace(/\n/g,'<br>')}</div>
     <div class="comment-footer">
-      ${depth < 10 ? `<button class="action-btn" onclick="showReplyForm('${c.id}',${depth})"><i class="fa-solid fa-reply"></i> Reply</button>` : `<span class="depth-limit-msg"><i class="fa-solid fa-circle-info"></i> Thread limit reached — <a href="#composeCard" onclick="toggleCompose();document.getElementById('composeCard').scrollIntoView({behavior:'smooth'})">start a new discussion</a></span>`}
-      ${replyCount > 0 ? `<button class="action-btn collapse-btn" onclick="toggleCollapse('${c.id}')"><i class="fa-solid fa-${isCollapsed?'plus':'minus'}"></i> ${isCollapsed ? 'Show' : 'Hide'} ${replyCount} ${replyCount===1?'reply':'replies'}</button>` : ''}
+      ${depth < 10 ? `<button class="action-btn" onclick="showReplyForm('${sid}',${depth})"><i class="fa-solid fa-reply"></i> Reply</button>` : `<span class="depth-limit-msg"><i class="fa-solid fa-circle-info"></i> Thread limit reached — <a href="#composeCard" onclick="toggleCompose();document.getElementById('composeCard').scrollIntoView({behavior:'smooth'})">start a new discussion</a></span>`}
+      ${replyCount > 0 ? `<button class="action-btn collapse-btn" onclick="toggleCollapse('${sid}')"><i class="fa-solid fa-${isCollapsed?'plus':'minus'}"></i> ${isCollapsed ? 'Show' : 'Hide'} ${replyCount} ${replyCount===1?'reply':'replies'}</button>` : ''}
       <span class="action-sep"></span>
       <div class="reactions-bar">
         ${reactionHtml}
-        <button class="add-reaction-btn" onclick="toggleEmojiPicker(event,'${c.id}')" title="React">+
-          <div class="emoji-picker" id="picker-${c.id}">
-            ${EMOJIS.map(em=>`<button class="emoji-pick" onclick="event.stopPropagation();toggleReaction('${c.id}','${em}')">${em}</button>`).join('')}
+        <button class="add-reaction-btn" onclick="toggleEmojiPicker(event,'${sid}')" title="React">+
+          <div class="emoji-picker" id="picker-${sid}">
+            ${EMOJIS.map(em=>`<button class="emoji-pick" onclick="event.stopPropagation();toggleReaction('${sid}','${em}')">${em}</button>`).join('')}
           </div>
         </button>
       </div>
     </div>
   </div>`;
 
-  html += `<div id="reply-form-${c.id}"></div>`;
+  html += `<div id="reply-form-${sid}"></div>`;
 
   if(c.replies && c.replies.length > 0){
-    html += `<div class="replies-container" id="replies-${c.id}" style="display:${isCollapsed?'none':'block'}">`;
+    html += `<div class="replies-container" id="replies-${sid}" style="display:${isCollapsed?'none':'block'}">`;
     c.replies.forEach(r => { html += renderComment(r, depth+1); });
     html += `</div>`;
   }
@@ -800,7 +810,7 @@ async function toggleReaction(commentId, emoji){
     localStorage.setItem('gms_reactions', JSON.stringify(myReactions));
     await loadComments();
   }catch(err){
-    showToast('Could not save reaction.');
+    showToast('Could not save reaction.','error');
   }
 }
 
@@ -826,7 +836,7 @@ function showReplyForm(parentId, depth){
         <div class="form-group">
           <textarea class="form-input" id="reply-text-${parentId}" placeholder="Write your reply..." required maxlength="2000"></textarea>
         </div>
-        <button class="submit-btn" onclick="submitReply('${parentId}')"><i class="fa-solid fa-paper-plane"></i> Reply</button>
+        <button class="submit-btn" id="reply-btn-${parentId}" onclick="submitReply('${parentId}')"><i class="fa-solid fa-paper-plane"></i> Reply</button>
       </div>
     </div>
   `;
@@ -841,6 +851,7 @@ function cancelReply(parentId){
 async function submitReply(parentId){
   const nameEl = document.getElementById('reply-name-'+parentId);
   const textEl = document.getElementById('reply-text-'+parentId);
+  const btn = document.getElementById('reply-btn-'+parentId);
   const name = nameEl.value.trim();
   const text = textEl.value.trim();
   if(!name || !text) return;
@@ -855,7 +866,7 @@ async function submitReply(parentId){
 
   // Text minimum
   if(text.length < 3){
-    showToast('Reply must be at least 3 characters.');
+    showToast('Reply must be at least 3 characters.','error');
     return;
   }
 
@@ -863,9 +874,11 @@ async function submitReply(parentId){
   const now = Date.now();
   if(now - lastPostTime < POST_COOLDOWN){
     const wait = Math.ceil((POST_COOLDOWN - (now - lastPostTime)) / 1000);
-    showToast('Please wait ' + wait + 's before posting again.');
+    showToast('Please wait ' + wait + 's before posting again.','error');
     return;
   }
+
+  if(btn){ btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Posting...'; btn.disabled=true; }
 
   try{
     localStorage.setItem('gms_forum_name',name);
@@ -875,7 +888,9 @@ async function submitReply(parentId){
     await loadComments();
     showToast('Reply posted!');
   }catch(err){
-    showToast(err.message || 'Failed to post reply.');
+    showToast(err.message || 'Failed to post reply.','error');
+  }finally{
+    if(btn){ btn.innerHTML='<i class="fa-solid fa-paper-plane"></i> Reply'; btn.disabled=false; }
   }
 }
 
@@ -902,7 +917,7 @@ async function addComment(e){
 
   // Text minimum
   if(text.length < 3){
-    showToast('Comment must be at least 3 characters.');
+    showToast('Comment must be at least 3 characters.','error');
     return false;
   }
 
@@ -910,7 +925,7 @@ async function addComment(e){
   const now = Date.now();
   if(now - lastPostTime < POST_COOLDOWN){
     const wait = Math.ceil((POST_COOLDOWN - (now - lastPostTime)) / 1000);
-    showToast('Please wait ' + wait + 's before posting again.');
+    showToast('Please wait ' + wait + 's before posting again.','error');
     return false;
   }
 
@@ -930,7 +945,7 @@ async function addComment(e){
     // Scroll to the discussion
     document.querySelector('.discussion-section').scrollIntoView({behavior:'smooth',block:'start'});
   }catch(err){
-    showToast(err.message || 'Failed to post.');
+    showToast(err.message || 'Failed to post.','error');
   }finally{
     btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Post';
     btn.disabled = false;
@@ -940,9 +955,17 @@ async function addComment(e){
 }
 
 // --- TOAST ---
-function showToast(msg){
+function showToast(msg, type){
   const t = document.getElementById('toast');
+  const icon = document.getElementById('toastIcon');
   document.getElementById('toastMsg').textContent = msg || 'Posted!';
+  if(type === 'error'){
+    icon.className = 'fa-solid fa-circle-exclamation';
+    icon.style.color = 'var(--danger, #ef4444)';
+  } else {
+    icon.className = 'fa-solid fa-circle-check';
+    icon.style.color = 'var(--success, #10b981)';
+  }
   t.classList.add('visible');
   setTimeout(()=>t.classList.remove('visible'), 3000);
 }
@@ -954,7 +977,11 @@ scrollBtn.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}
 
 // --- INIT ---
 loadComments();
-setInterval(loadComments, 30000);
+let pollTimer = setInterval(loadComments, 30000);
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){ clearInterval(pollTimer); }
+  else { loadRetries=0; loadComments(); pollTimer=setInterval(loadComments,30000); }
+});
 
 // Download 3 core doc pages combined as PDF
 function downloadAllPagesAsPDF(e){
@@ -993,7 +1020,7 @@ function downloadAllPagesAsPDF(e){
     var htmls=[results[0],results[1],results[2]];
     var commonCSS=results[3];
     var win=window.open('','_blank');
-    if(!win){alert('Please allow pop-ups to download the PDF.');btn.innerHTML=origHTML;btn.style.pointerEvents='';return;}
+    if(!win){showToast('Please allow pop-ups to download the PDF.','error');btn.innerHTML=origHTML;btn.style.pointerEvents='';return;}
 
     var d=win.document;
     d.open();
@@ -1100,9 +1127,8 @@ function downloadAllPagesAsPDF(e){
     btn.innerHTML=origHTML;
     btn.style.pointerEvents='';
   })
-  .catch(function(err){
-    console.error('PDF download failed:',err);
-    alert('Failed to load pages. Please try again.');
+  .catch(function(){
+    showToast('Failed to load pages. Please try again.','error');
     btn.innerHTML=origHTML;
     btn.style.pointerEvents='';
   });

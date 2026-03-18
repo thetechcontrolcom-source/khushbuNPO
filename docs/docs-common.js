@@ -14,19 +14,19 @@
   function openMobileNav(){
     if(!mobileNav) return;
     mobileNav.classList.add('active');
-    mobileOverlay.classList.add('active');
-    hamburger.classList.add('active');
+    if(mobileOverlay) mobileOverlay.classList.add('active');
+    if(hamburger) hamburger.classList.add('active');
     document.body.classList.add('nav-open');
     // Trap focus inside mobile nav
-    const firstFocusable = mobileNav.querySelector('a, button');
+    var firstFocusable = mobileNav.querySelector('a, button');
     if(firstFocusable) setTimeout(function(){ firstFocusable.focus(); }, 100);
   }
 
   function closeMobileNav(){
     if(!mobileNav) return;
     mobileNav.classList.remove('active');
-    mobileOverlay.classList.remove('active');
-    hamburger.classList.remove('active');
+    if(mobileOverlay) mobileOverlay.classList.remove('active');
+    if(hamburger) hamburger.classList.remove('active');
     document.body.classList.remove('nav-open');
     if(hamburger) hamburger.focus();
   }
@@ -67,6 +67,7 @@
 
   // ── Nav Scroll Shadow ──────────────────────────────────────
   var topNav = document.querySelector('.top-nav');
+  var backToTopBtn = document.querySelector('.back-to-top') || document.querySelector('.scroll-top');
   var lastScrollY = 0;
   var ticking = false;
 
@@ -97,12 +98,11 @@
     }
 
     // Back to top visibility
-    var btt = document.querySelector('.back-to-top') || document.querySelector('.scroll-top');
-    if(btt){
+    if(backToTopBtn){
       if(lastScrollY > 400){
-        btt.classList.add('visible');
+        backToTopBtn.classList.add('visible');
       } else {
-        btt.classList.remove('visible');
+        backToTopBtn.classList.remove('visible');
       }
     }
   }
@@ -182,6 +182,12 @@
 
     if(!sections.length) return;
 
+    if(!('IntersectionObserver' in window)){
+      // Fallback: mark first sidebar link as active
+      if(sections[0]) sections[0].link.classList.add('active');
+      return;
+    }
+
     var sidebarObserver = new IntersectionObserver(function(entries){
       entries.forEach(function(entry){
         if(entry.isIntersecting){
@@ -226,13 +232,13 @@
 
   function showKeyboardHelp(){
     var existing = document.getElementById('kbd-help-modal');
-    if(existing){ existing.remove(); return; }
+    if(existing){ removeKbdModal(existing); return; }
 
     var modal = document.createElement('div');
     modal.id = 'kbd-help-modal';
     modal.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);animation:fadeIn .2s ease';
     modal.innerHTML = '<div style="background:#fff;border-radius:16px;padding:28px;max-width:360px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.2);position:relative">' +
-      '<button onclick="this.closest(\'#kbd-help-modal\').remove()" style="position:absolute;top:12px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center" aria-label="Close">&times;</button>' +
+      '<button class="kbd-close-btn" style="position:absolute;top:12px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center" aria-label="Close">&times;</button>' +
       '<h3 style="margin:0 0 16px;font-size:16px;display:flex;align-items:center;gap:8px"><i class="fa-solid fa-keyboard" style="color:#3b82f6"></i> Keyboard Shortcuts</h3>' +
       '<div style="display:grid;gap:8px;font-size:13px">' +
       shortcutRow('Home', 'Scroll to top') +
@@ -242,12 +248,20 @@
       '</div></div>';
 
     document.body.appendChild(modal);
-    modal.addEventListener('click', function(e){
-      if(e.target === modal) modal.remove();
-    });
-    document.addEventListener('keydown', function closeKbd(e){
-      if(e.key === 'Escape'){ modal.remove(); document.removeEventListener('keydown', closeKbd); }
-    });
+
+    // Centralized cleanup to prevent listener leaks
+    function closeKbd(e){
+      if(e.key === 'Escape') removeKbdModal(modal);
+    }
+    modal._closeKbd = closeKbd;
+    modal.querySelector('.kbd-close-btn').addEventListener('click', function(){ removeKbdModal(modal); });
+    modal.addEventListener('click', function(e){ if(e.target === modal) removeKbdModal(modal); });
+    document.addEventListener('keydown', closeKbd);
+  }
+
+  function removeKbdModal(modal){
+    if(modal._closeKbd) document.removeEventListener('keydown', modal._closeKbd);
+    modal.remove();
   }
 
   function shortcutRow(key, desc){
@@ -255,15 +269,6 @@
       '<span style="color:#64748b">' + desc + '</span>' +
       '<kbd style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;color:#1e293b;font-family:inherit;min-width:32px;text-align:center">' + key + '</kbd>' +
       '</div>';
-  }
-
-
-  // ── Touch-Friendly: Prevent 300ms Delay ────────────────────
-  // Modern browsers handle this, but set viewport meta as fallback
-  var vpMeta = document.querySelector('meta[name="viewport"]');
-  if(vpMeta && vpMeta.content.indexOf('user-scalable') === -1){
-    // Don't add user-scalable=no — it's bad for accessibility
-    // The width=device-width already removes the delay in modern browsers
   }
 
 
@@ -285,14 +290,20 @@
     var text = code.textContent;
     if(navigator.clipboard){
       navigator.clipboard.writeText(text).then(function(){
-        var tip = document.createElement('span');
-        tip.textContent = 'Copied!';
-        tip.style.cssText = 'position:fixed;top:80px;right:20px;background:#10b981;color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;animation:fadeIn .2s ease';
-        document.body.appendChild(tip);
-        setTimeout(function(){ tip.remove(); }, 1500);
+        showCopyToast('Copied!', '#10b981');
+      }).catch(function(){
+        showCopyToast('Copy failed', '#ef4444');
       });
     }
   });
+
+  function showCopyToast(message, color){
+    var tip = document.createElement('span');
+    tip.textContent = message;
+    tip.style.cssText = 'position:fixed;top:80px;right:20px;background:' + color + ';color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;animation:fadeIn .2s ease';
+    document.body.appendChild(tip);
+    setTimeout(function(){ tip.remove(); }, 1500);
+  }
 
 
   // ── Performance: Lazy-load off-screen images ───────────────

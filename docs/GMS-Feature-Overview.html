@@ -182,7 +182,7 @@
   <div class="mobile-nav-links">
     <a href="GMS-Feature-Overview.html" class="active"><i class="fa-solid fa-star"></i> <span class="mobile-nav-label">Feature Overview</span> <i class="fa-solid fa-chevron-right mobile-nav-arrow"></i></a>
     <a href="GMS-Workflow-Guide.html"><i class="fa-solid fa-diagram-project"></i> <span class="mobile-nav-label">Workflow Guide</span> <i class="fa-solid fa-chevron-right mobile-nav-arrow"></i></a>
-    <a href="GMS-Testing-Deployment-Plan.html"><i class="fa-solid fa-rocket"></i> <span class="mobile-nav-label">Testing & Deployment</span> <i class="fa-solid fa-chevron-right mobile-nav-arrow"></i></a>
+    <a href="GMS-Testing-Deployment-Plan.html"><i class="fa-solid fa-rocket"></i> <span class="mobile-nav-label">Testing &amp; Deployment</span> <i class="fa-solid fa-chevron-right mobile-nav-arrow"></i></a>
     <a href="GMS-Comments.html"><i class="fa-solid fa-comments"></i> <span class="mobile-nav-label">Forum</span> <i class="fa-solid fa-chevron-right mobile-nav-arrow"></i></a>
   </div>
   <div class="mobile-nav-divider"></div>
@@ -238,7 +238,7 @@
       <div class="hero-meta-item"><i class="fa-solid fa-building"></i> Citrin Cooperman</div>
       <div class="hero-meta-item"><i class="fa-solid fa-calendar"></i> March 10, 2026</div>
       <div class="hero-meta-item"><i class="fa-brands fa-microsoft"></i> Microsoft Azure</div>
-      <a href="javascript:void(0)" onclick="window.print()" class="btn-hero-pdf"><i class="fa fa-file-pdf"></i> PDF</a>
+      <a href="#" onclick="event.preventDefault();window.print();" class="btn-hero-pdf"><i class="fa fa-file-pdf"></i> PDF</a>
     </div>
   </div>
 </section>
@@ -800,33 +800,15 @@
 </footer>
 
 <!-- BACK TO TOP -->
-<button class="back-to-top" id="backToTop"><i class="fa-solid fa-arrow-up"></i></button>
+<button class="back-to-top" id="backToTop" aria-label="Back to top"><i class="fa-solid fa-arrow-up"></i></button>
 
 <script>
 // Particles
 (function(){const c=document.getElementById('particles');if(!c)return;for(let i=0;i<25;i++){const p=document.createElement('div');p.className='particle';p.style.left=Math.random()*100+'%';p.style.animationDuration=(6+Math.random()*10)+'s';p.style.animationDelay=Math.random()*8+'s';p.style.width=p.style.height=(1+Math.random()*3)+'px';c.appendChild(p);}})();
 
-// Smooth scroll
-document.querySelectorAll('a[href^="#"]').forEach(a=>{a.addEventListener('click',e=>{e.preventDefault();const t=document.querySelector(a.getAttribute('href'));if(t)t.scrollIntoView({behavior:'smooth',block:'start'});});});
-
-// Back to top
-const btn=document.getElementById('backToTop');
-window.addEventListener('scroll',()=>{btn.classList.toggle('visible',window.scrollY>400);});
-btn.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
-
-// Fade-in observer
-const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');obs.unobserve(e.target);}});},{threshold:0.08,rootMargin:'0px 0px -30px 0px'});
-document.querySelectorAll('.fade-in').forEach(el=>obs.observe(el));
-
 // Counter animation
 const cObs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){const el=e.target,tgt=+el.dataset.target;let cur=0;const step=Math.max(1,Math.ceil(tgt/25));const t=setInterval(()=>{cur+=step;if(cur>=tgt){cur=tgt;clearInterval(t);}el.textContent=cur;},50);cObs.unobserve(el);}});},{threshold:0.5});
 document.querySelectorAll('.stat-number[data-target]').forEach(el=>cObs.observe(el));
-
-// Sidebar active tracking
-const sections=document.querySelectorAll('[id]');
-const navLinks=document.querySelectorAll('.sidebar-nav a');
-const sObs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){navLinks.forEach(l=>{l.classList.toggle('active',l.getAttribute('href')==='#'+e.target.id);});}});},{threshold:0.15,rootMargin:'-80px 0px -60% 0px'});
-sections.forEach(s=>{if(s.id&&document.querySelector('.sidebar-nav a[href="#'+s.id+'"]'))sObs.observe(s);});
 
 // Download 3 core doc pages combined as PDF
 function downloadAllPagesAsPDF(e){
@@ -973,7 +955,6 @@ function downloadAllPagesAsPDF(e){
     btn.style.pointerEvents='';
   })
   .catch(function(err){
-    console.error('PDF download failed:',err);
     alert('Failed to load pages. Please try again.');
     btn.innerHTML=origHTML;
     btn.style.pointerEvents='';

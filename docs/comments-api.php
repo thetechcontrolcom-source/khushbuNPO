@@ -12,12 +12,26 @@ header('Content-Type: application/json');
 
 // CORS — restrict to same origin or known domains
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-$allowed = ['http://localhost', 'https://khushbushah.online', 'https://thetechcontrolcom-source.github.io'];
+$allowed_origins = [
+    'http://localhost',
+    'https://khushbushah.online',
+    'https://thetechcontrolcom-source.github.io',
+];
 $matched = false;
-foreach ($allowed as $a) {
-    if (str_starts_with($origin, $a)) { $matched = true; break; }
+// Parse origin to compare scheme+host (port-aware) — prevents subdomain spoofing
+$parsedOrigin = parse_url($origin);
+$originHost = ($parsedOrigin['scheme'] ?? '') . '://' . ($parsedOrigin['host'] ?? '');
+$originHostWithPort = $originHost;
+if (!empty($parsedOrigin['port'])) {
+    $originHostWithPort = $originHost . ':' . $parsedOrigin['port'];
 }
-header('Access-Control-Allow-Origin: ' . ($matched ? $origin : $allowed[0]));
+foreach ($allowed_origins as $a) {
+    if ($originHost === $a || $originHostWithPort === $a) {
+        $matched = true;
+        break;
+    }
+}
+header('Access-Control-Allow-Origin: ' . ($matched ? $origin : $allowed_origins[0]));
 header('Access-Control-Allow-Methods: GET, POST, PATCH, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 header('X-Content-Type-Options: nosniff');
@@ -29,8 +43,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// Data file path (same directory, not web-accessible name)
-define('DATA_FILE', __DIR__ . '/gms-comments-data.json');
+// Data file path (stored outside webroot for security)
+$dataDir = dirname(__DIR__) . '/uploads/comments';
+if (!is_dir($dataDir) && !mkdir($dataDir, 0750, true)) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Server configuration error. Please contact support.']);
+    exit;
+}
+define('DATA_FILE', $dataDir . '/gms-comments-data.json');
+
+// Migrate legacy file if it exists in docs/
+$legacyFile = __DIR__ . '/gms-comments-data.json';
+if (file_exists($legacyFile) && !file_exists(DATA_FILE)) {
+    @rename($legacyFile, DATA_FILE);
+}
 
 // Read comments from file
 function readComments(): array {
@@ -56,7 +82,6 @@ function genId(): string {
 function clean(string $input, int $maxLen = 2000): string {
     $s = trim($input);
     $s = strip_tags($s);
-    $s = htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $s = mb_substr($s, 0, $maxLen, 'UTF-8');
     return $s;
 }
@@ -65,7 +90,7 @@ function clean(string $input, int $maxLen = 2000): string {
 function isValidName(string $name): bool {
     return mb_strlen($name, 'UTF-8') >= 2
         && mb_strlen($name, 'UTF-8') <= 20
-        && preg_match('/^[a-zA-Z\s\'\-\.]+$/u', $name);
+        && preg_match('/^[a-zA-Z \'\-\.]+$/u', $name);
 }
 
 // Check for suspicious content (script injection, HTML tags, etc.)
@@ -76,7 +101,7 @@ function isSuspiciousContent(string $text): bool {
         '/\balert\s*\(/i', '/\bfetch\s*\(/i',
         '/<iframe/i', '/<object/i', '/<embed/i', '/<form/i',
         '/<img[^>]+onerror/i', '/data:\s*text\/html/i',
-        '/base64/i',
+        '/base64,/i',
     ];
     foreach ($patterns as $p) {
         if (preg_match($p, $text)) return true;
@@ -112,8 +137,8 @@ function countTotal(array $comments): int {
 }
 
 // Max nesting depth check
-function getDepth(array &$comments, string $parentId, int $depth = 0): int {
-    foreach ($comments as &$c) {
+function getDepth(array $comments, string $parentId, int $depth = 0): int {
+    foreach ($comments as $c) {
         if ($c['id'] === $parentId) return $depth;
         if (!empty($c['replies'])) {
             $found = getDepth($c['replies'], $parentId, $depth + 1);
@@ -222,7 +247,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Parse input
     $input = json_decode($raw, true);
-    if (!$input) {
+    if ($input === null || !is_array($input)) {
         http_response_code(400);
         echo json_encode(['error' => 'Invalid JSON input.']);
         exit;
@@ -287,7 +312,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $replyTo = $_GET['reply_to'] ?? null;
 
-    // Limit reply nesting depth to 5
+    // Validate reply_to format (alphanumeric, max 30 chars)
+    if ($replyTo !== null && !preg_match('/^[a-z0-9]+$/i', $replyTo)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid reply parameter.']);
+        exit;
+    }
+
+    // Limit reply nesting depth to 10
     if ($replyTo) {
         $depth = getDepth($comments, $replyTo);
         if ($depth < 0) {
@@ -327,7 +359,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!writeComments($comments)) {
         http_response_code(500);
-        echo json_encode(['error' => 'Failed to save comment. Check server permissions.']);
+        echo json_encode(['error' => 'Failed to save comment. Please try again later.']);
         exit;
     }
 
@@ -337,6 +369,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {
+    // Reject oversized payloads (max 2KB for reactions)
+    $raw = file_get_contents('php://input');
+    if (strlen($raw) > 2048) {
+        http_response_code(413);
+        echo json_encode(['error' => 'Payload too large.']);
+        exit;
+    }
+
     // Rate limit reactions too
     if (!checkRateLimit()) {
         http_response_code(429);
@@ -345,15 +385,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {
     }
 
     $reactId = $_GET['react'] ?? null;
-    if (!$reactId) {
+    if (!$reactId || !preg_match('/^[a-z0-9]+$/i', $reactId)) {
         http_response_code(400);
-        echo json_encode(['error' => 'Missing react parameter.']);
+        echo json_encode(['error' => 'Missing or invalid react parameter.']);
         exit;
     }
 
-    $input = json_decode(file_get_contents('php://input'), true);
+    $input = json_decode($raw, true);
+    if (!$input || !is_array($input)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid JSON input.']);
+        exit;
+    }
     $emoji = $input['emoji'] ?? '';
     $action = $input['action'] ?? 'add';
+
+    if (!in_array($action, ['add', 'remove'], true)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid action. Use "add" or "remove".']);
+        exit;
+    }
 
     $allowed = ['👍','❤️','🎯','💡','👏','🔥'];
     if (!in_array($emoji, $allowed, true)) {
@@ -375,6 +426,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {
         exit;
     }
 
+    http_response_code(200);
     echo json_encode(['success' => true]);
     exit;
 }
@@ -382,3 +434,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'PATCH') {
 // Unknown method
 http_response_code(405);
 echo json_encode(['error' => 'Method not allowed.']);
+exit;

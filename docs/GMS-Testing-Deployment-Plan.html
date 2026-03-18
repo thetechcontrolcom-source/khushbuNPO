@@ -1433,23 +1433,27 @@ table th.opt2-header{background:var(--option2);}
 })();
 
 // Option tab switching
-document.querySelectorAll('.option-tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.option-tab').forEach(t => t.classList.remove('active-tab'));
-    document.querySelectorAll('.option-content').forEach(c => c.classList.remove('active-content'));
-    tab.classList.add('active-tab');
-    document.getElementById('tab-' + tab.dataset.tab).classList.add('active-content');
-  });
+function activateOptionTab(tabId){
+  document.querySelectorAll('.option-tab').forEach(function(t){ t.classList.remove('active-tab'); });
+  document.querySelectorAll('.option-content').forEach(function(c){ c.classList.remove('active-content'); });
+  var tab = document.querySelector('.option-tab[data-tab="'+tabId+'"]');
+  var content = document.getElementById('tab-'+tabId);
+  if(tab) tab.classList.add('active-tab');
+  if(content) content.classList.add('active-content');
+}
+document.querySelectorAll('.option-tab').forEach(function(tab){
+  tab.addEventListener('click', function(){ activateOptionTab(tab.dataset.tab); });
 });
 
-// Back to top
-const btn=document.getElementById('backToTop');
-window.addEventListener('scroll',()=>{btn.classList.toggle('visible',window.scrollY>400);});
-btn.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
-
-// Scroll animations (fade-in)
-const observer=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');observer.unobserve(e.target);}});},{threshold:0.1,rootMargin:'0px 0px -40px 0px'});
-document.querySelectorAll('.fade-in').forEach(el=>observer.observe(el));
+// Sidebar links: activate the correct tab when navigating to option sections
+document.querySelectorAll('.sidebar-nav a[href="#option1-detail"], .sidebar-nav a[href="#option2-detail"]').forEach(function(link){
+  link.addEventListener('click', function(e){
+    var target = link.getAttribute('href');
+    if(target === '#option1-detail') activateOptionTab('opt1');
+    else if(target === '#option2-detail') activateOptionTab('opt2');
+    // Allow default scroll after tab is visible
+  });
+});
 
 // Animated counters
 const counterObserver=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){const el=e.target;const target=+el.dataset.target;let current=0;const step=Math.ceil(target/30);const timer=setInterval(()=>{current+=step;if(current>=target){current=target;clearInterval(timer);}el.textContent=current;},40);counterObserver.unobserve(el);}});},{threshold:0.5});
@@ -1458,27 +1462,6 @@ document.querySelectorAll('.stat-number[data-target]').forEach(el=>counterObserv
 // Animate timeline bars on scroll
 const barObserver=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){const bar=e.target.querySelector('.timeline-bar');if(bar){const w=bar.style.width;bar.style.width='0%';setTimeout(()=>{bar.style.width=w;},100);}barObserver.unobserve(e.target);}});},{threshold:0.3});
 document.querySelectorAll('.timeline-bar-row').forEach(el=>barObserver.observe(el));
-
-// Sidebar active state tracking
-const sidebarLinks=document.querySelectorAll('.sidebar-nav a');
-const sections=[];
-sidebarLinks.forEach(link=>{
-  const href=link.getAttribute('href');
-  if(href&&href.startsWith('#')){
-    const section=document.querySelector(href);
-    if(section)sections.push({el:section,link:link});
-  }
-});
-const sidebarObserver=new IntersectionObserver((entries)=>{
-  entries.forEach(entry=>{
-    if(entry.isIntersecting){
-      sidebarLinks.forEach(l=>l.classList.remove('active'));
-      const match=sections.find(s=>s.el===entry.target);
-      if(match)match.link.classList.add('active');
-    }
-  });
-},{threshold:0.2,rootMargin:'-80px 0px -60% 0px'});
-sections.forEach(s=>sidebarObserver.observe(s.el));
 
 // Download 3 core doc pages combined as PDF
 function downloadAllPagesAsPDF(e){
@@ -1506,6 +1489,11 @@ function downloadAllPagesAsPDF(e){
     return out;
   }
 
+  // Open window synchronously (in user-gesture context) to avoid popup blockers
+  var win=window.open('','_blank');
+  if(!win){alert('Please allow pop-ups to download the PDF.');btn.innerHTML=origHTML;btn.style.pointerEvents='';return;}
+  win.document.write('<p style="font-family:system-ui;color:#64748b;padding:40px;text-align:center"><i>Preparing PDF\u2026</i></p>');
+
   var ts=Date.now();
   Promise.all([
     fetch(pages[0]+'?t='+ts).then(function(r){return r.text();}),
@@ -1516,8 +1504,6 @@ function downloadAllPagesAsPDF(e){
   .then(function(results){
     var htmls=[results[0],results[1],results[2]];
     var commonCSS=results[3];
-    var win=window.open('','_blank');
-    if(!win){alert('Please allow pop-ups to download the PDF.');btn.innerHTML=origHTML;btn.style.pointerEvents='';return;}
 
     var d=win.document;
     d.open();
@@ -1624,8 +1610,8 @@ function downloadAllPagesAsPDF(e){
     btn.innerHTML=origHTML;
     btn.style.pointerEvents='';
   })
-  .catch(function(err){
-    console.error('PDF download failed:',err);
+  .catch(function(){
+    if(win) win.close();
     alert('Failed to load pages. Please try again.');
     btn.innerHTML=origHTML;
     btn.style.pointerEvents='';
